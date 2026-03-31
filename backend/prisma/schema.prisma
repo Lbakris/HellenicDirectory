@@ -1,0 +1,335 @@
+// Hellenic Directory of America — Prisma Schema
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum AppRole {
+  OWNER
+  ADMIN
+  REGISTERED
+}
+
+enum DirectoryAdminRole {
+  DIRECTORY_ADMIN
+  CHAPTER_ADMIN
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum MessageType {
+  DIRECT
+  BROADCAST
+}
+
+// ─── Identity ─────────────────────────────────────────────────────────────────
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  emailVerifiedAt   DateTime?
+  passwordHash      String?
+  fullName          String
+  phone             String?
+  avatarUrl         String?
+  appRole           AppRole   @default(REGISTERED)
+  pushTokenFcm      String?
+  pushTokenApns     String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime?
+
+  authTokens        AuthToken[]
+  oauthAccounts     OAuthAccount[]
+  createdDirectories Directory[]      @relation("DirectoryCreator")
+  directoryAdminOf  DirectoryAdmin[]
+  directoryMembers  DirectoryMember[]
+  sentInvitations   DirectoryInvitation[] @relation("InvitedBy")
+  approvedInvitations DirectoryInvitation[] @relation("ApprovedBy")
+  sentMessages      Message[]
+  threadParticipations ThreadParticipant[]
+  verifiedOrgs      MemberOrganization[] @relation("VerifiedBy")
+  createdBusinesses BusinessListing[]
+
+  @@map("users")
+}
+
+model AuthToken {
+  id          String    @id @default(uuid())
+  userId      String
+  tokenHash   String    @unique
+  deviceId    String?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_tokens")
+}
+
+model OAuthAccount {
+  id             String   @id @default(uuid())
+  userId         String
+  provider       String   // "google" | "apple"
+  providerUserId String
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@map("oauth_accounts")
+}
+
+// ─── Parish Directory ─────────────────────────────────────────────────────────
+
+model Metropolis {
+  id          String   @id @default(uuid())
+  goarchId    String   @unique
+  name        String
+  bishopName  String?
+  region      String?
+  website     String?
+  rawData     Json?
+  lastScrapedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parishes    Parish[]
+
+  @@map("metropolises")
+}
+
+model Parish {
+  id            String     @id @default(uuid())
+  goarchId      String     @unique
+  name          String
+  address       String?
+  city          String?
+  state         String?
+  zip           String?
+  country       String     @default("US")
+  phone         String?
+  email         String?
+  website       String?
+  latitude      Decimal?   @db.Decimal(10, 7)
+  longitude     Decimal?   @db.Decimal(10, 7)
+  metropolisId  String?
+  rawData       Json?
+  lastScrapedAt DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  metropolis    Metropolis? @relation(fields: [metropolisId], references: [id])
+  clergy        Clergy[]
+
+  @@map("parishes")
+}
+
+model Clergy {
+  id             String   @id @default(uuid())
+  parishId       String
+  goarchClergyId String?  @unique
+  title          String?
+  fullName       String
+  email          String?
+  phone          String?
+  rawData        Json?
+  lastScrapedAt  DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  parish         Parish   @relation(fields: [parishId], references: [id], onDelete: Cascade)
+
+  @@map("clergy")
+}
+
+// ─── Private Directories ──────────────────────────────────────────────────────
+
+model Directory {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String?
+  isVisible   Boolean   @default(false)
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  createdBy   User      @relation("DirectoryCreator", fields: [createdById], references: [id])
+  admins      DirectoryAdmin[]
+  members     DirectoryMember[]
+  invitations DirectoryInvitation[]
+  threads     MessageThread[]
+
+  @@map("directories")
+}
+
+model DirectoryAdmin {
+  id          String             @id @default(uuid())
+  directoryId String
+  userId      String
+  role        DirectoryAdminRole @default(DIRECTORY_ADMIN)
+  createdAt   DateTime           @default(now())
+
+  directory   Directory @relation(fields: [directoryId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([directoryId, userId])
+  @@map("directory_admins")
+}
+
+model DirectoryInvitation {
+  id              String           @id @default(uuid())
+  directoryId     String
+  invitedById     String
+  email           String
+  token           String           @unique @default(uuid())
+  status          InvitationStatus @default(PENDING)
+  adminApprovedById String?
+  // second approval tracking (dual-approval: inviter + one other member or admin)
+  secondApproverId String?
+  expiresAt       DateTime
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  directory       Directory @relation(fields: [directoryId], references: [id], onDelete: Cascade)
+  invitedBy       User      @relation("InvitedBy", fields: [invitedById], references: [id])
+  approvedBy      User?     @relation("ApprovedBy", fields: [adminApprovedById], references: [id])
+
+  @@map("directory_invitations")
+}
+
+model DirectoryMember {
+  id               String    @id @default(uuid())
+  directoryId      String
+  userId           String
+  photoUrl         String?
+  city             String?
+  industry         String?
+  employer         String?
+  preferredContact String?   // "email" | "phone" | "in-app"
+  bio              String?
+  joinedAt         DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  directory        Directory @relation(fields: [directoryId], references: [id], onDelete: Cascade)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizations    MemberOrganization[]
+
+  @@unique([directoryId, userId])
+  @@map("directory_members")
+}
+
+// ─── Organizations ────────────────────────────────────────────────────────────
+
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  type        String?  // "AHEPA" | "Philoptochos" | "Daughters of Penelope" | "custom"
+  description String?
+  createdAt   DateTime @default(now())
+
+  members     MemberOrganization[]
+
+  @@map("organizations")
+}
+
+model MemberOrganization {
+  id             String    @id @default(uuid())
+  memberId       String
+  organizationId String
+  verifiedAt     DateTime?
+  verifiedById   String?
+  createdAt      DateTime  @default(now())
+
+  member         DirectoryMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  verifiedBy     User?           @relation("VerifiedBy", fields: [verifiedById], references: [id])
+
+  @@unique([memberId, organizationId])
+  @@map("member_organizations")
+}
+
+// ─── Messaging ────────────────────────────────────────────────────────────────
+
+model MessageThread {
+  id          String      @id @default(uuid())
+  directoryId String
+  subject     String?
+  createdById String
+  type        MessageType @default(DIRECT)
+  createdAt   DateTime    @default(now())
+
+  directory    Directory          @relation(fields: [directoryId], references: [id], onDelete: Cascade)
+  participants ThreadParticipant[]
+  messages     Message[]
+
+  @@map("message_threads")
+}
+
+model ThreadParticipant {
+  id        String   @id @default(uuid())
+  threadId  String
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  thread    MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+  @@map("thread_participants")
+}
+
+model Message {
+  id                String    @id @default(uuid())
+  threadId          String
+  senderId          String
+  body              String
+  sentAt            DateTime  @default(now())
+  emailForwardedAt  DateTime?
+
+  thread            MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender            User          @relation(fields: [senderId], references: [id])
+
+  @@map("messages")
+}
+
+// ─── Business Listings ────────────────────────────────────────────────────────
+
+model BusinessListing {
+  id            String    @id @default(uuid())
+  businessName  String
+  contactName   String
+  phone         String
+  email         String
+  city          String
+  state         String?
+  website       String?
+  description   String?   @db.VarChar(250)
+  logoUrl       String?
+  keywords      String[]
+  isActive      Boolean   @default(true)
+  createdById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  createdBy     User      @relation(fields: [createdById], references: [id])
+
+  @@map("business_listings")
+}
