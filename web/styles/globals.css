@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 50% 96%;        /* cream */
+    --foreground: 220 40% 18%;       /* navy */
+    --card: 0 0% 100%;
+    --card-foreground: 220 40% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 40% 18%;
+    --primary: 220 47% 19%;          /* navy */
+    --primary-foreground: 43 58% 55%; /* gold */
+    --secondary: 43 58% 55%;          /* gold */
+    --secondary-foreground: 220 47% 19%;
+    --muted: 40 30% 90%;
+    --muted-foreground: 220 20% 45%;
+    --accent: 43 58% 55%;
+    --accent-foreground: 220 47% 19%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 20% 82%;
+    --input: 220 20% 82%;
+    --ring: 43 58% 55%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 220 47% 10%;
+    --foreground: 40 50% 92%;
+    --card: 220 40% 14%;
+    --card-foreground: 40 50% 92%;
+    --popover: 220 40% 14%;
+    --popover-foreground: 40 50% 92%;
+    --primary: 43 58% 55%;
+    --primary-foreground: 220 47% 10%;
+    --secondary: 220 30% 25%;
+    --secondary-foreground: 40 50% 92%;
+    --muted: 220 30% 20%;
+    --muted-foreground: 220 20% 65%;
+    --accent: 43 58% 55%;
+    --accent-foreground: 220 47% 10%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 30% 25%;
+    --input: 220 30% 25%;
+    --ring: 43 58% 55%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground font-sans; }
+  h1, h2, h3 { @apply font-serif; }
+}
+
+/* Greek meander decorative divider */
+.meander-divider {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='12' viewBox='0 0 60 12'%3E%3Cpath d='M0 6 L6 6 L6 0 L12 0 L12 6 L18 6 L18 12 L24 12 L24 6 L30 6 L30 0 L36 0 L36 6 L42 6 L42 12 L48 12 L48 6 L54 6 L54 0 L60 0' stroke='%23C9A84C' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-position: center;
+  height: 12px;
+  width: 100%;
+}

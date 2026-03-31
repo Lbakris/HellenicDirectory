@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.HellenicDirectory" parent="android:Theme.Material.NoTitleBar">
+        <!-- Navigation bar / status bar handled by edge-to-edge in Compose -->
+    </style>
+</resources>
