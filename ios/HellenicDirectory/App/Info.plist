@@ -10,14 +10,30 @@
     <string>1</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0.0</string>
+
+    <!--
+        API_BASE_URL is overridden per target in Xcode build settings.
+        The value here is the production default.
+    -->
     <key>API_BASE_URL</key>
-    <string>https://api.hellenicdir.com</string>
+    <string>https://api.hellenicdir.com/api/v1</string>
+
+    <!--
+        MinimumOSVersion: NavigationSplitView, SwiftUI async/await modifiers,
+        and other APIs used in this app require iOS 16.0 or later.
+        This must also be set as IPHONEOS_DEPLOYMENT_TARGET in build settings.
+    -->
+    <key>MinimumOSVersion</key>
+    <string>16.0</string>
+
+    <!-- Privacy usage descriptions — displayed in iOS permission prompts -->
     <key>NSPhotoLibraryUsageDescription</key>
     <string>Used to set your profile photo.</string>
     <key>NSCameraUsageDescription</key>
     <string>Used to take a profile photo.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Used to find nearby parishes on the map.</string>
+
     <key>UILaunchStoryboardName</key>
     <string>LaunchScreen</string>
     <key>UIRequiresFullScreen</key>

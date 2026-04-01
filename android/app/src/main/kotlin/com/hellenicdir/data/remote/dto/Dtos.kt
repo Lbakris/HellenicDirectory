@@ -17,7 +17,14 @@ data class RegisterRequest(
     @Json(name = "email") val email: String,
     @Json(name = "password") val password: String,
     @Json(name = "fullName") val fullName: String,
-    @Json(name = "phone") val phone: String? = null
+    @Json(name = "phone") val phone: String? = null,
+    /** Version of the Privacy Policy the user accepted — recorded for compliance audit trail. */
+    @Json(name = "privacyPolicyVersion") val privacyPolicyVersion: String,
+    /** Must be `true`. Set by the UI after user ticks the required consent checkbox. */
+    @Json(name = "consentPrivacyPolicy") val consentPrivacyPolicy: Boolean,
+    @Json(name = "consentTerms") val consentTerms: Boolean,
+    /** Required for Greek Orthodox community affiliation data (CCPA/PIPEDA sensitive data). */
+    @Json(name = "consentSensitiveData") val consentSensitiveData: Boolean,
 )
 
 @JsonClass(generateAdapter = true)

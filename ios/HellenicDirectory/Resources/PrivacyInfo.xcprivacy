@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    PrivacyInfo.xcprivacy — App Privacy Manifest
+    Required by Apple since Spring 2024 for all apps submitted to the App Store.
+    See: https://developer.apple.com/documentation/bundleresources/privacy_manifest_files
+
+    This manifest must be added to the Xcode project target via:
+      Project > Target > Build Phases > Copy Bundle Resources
+
+    Update this file whenever new SDK dependencies are added that access
+    required-reason APIs (file timestamps, system boot time, disk space, etc.).
+-->
+<plist version="1.0">
+<dict>
+    <!--
+        NSPrivacyTracking: false because this app uses only first-party analytics
+        and does not track users across third-party apps or websites.
+        Apple App Tracking Transparency (ATT) is therefore NOT required.
+    -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+
+    <!-- NSPrivacyTrackingDomains: empty — no cross-app tracking domains used -->
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <!--
+        NSPrivacyCollectedDataTypes: Data types collected by this app.
+        Must correspond to the App Store Connect privacy nutrition labels.
+    -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array>
+        <!-- Email address — used for account creation and authentication -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeEmailAddress</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+        <!-- Name — used for member directory profiles -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeName</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+        <!-- Phone number — optional, used in member profiles -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypePhoneNumber</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+        <!-- User content (profile photos, messages, bio) -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeUserContent</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+        <!-- Coarse location (city/state from profile) — NOT precise device GPS -->
+        <dict>
+            <key>NSPrivacyCollectedDataType</key>
+            <string>NSPrivacyCollectedDataTypeCoarseLocation</string>
+            <key>NSPrivacyCollectedDataTypeLinked</key>
+            <true/>
+            <key>NSPrivacyCollectedDataTypeTracking</key>
+            <false/>
+            <key>NSPrivacyCollectedDataTypePurposes</key>
+            <array>
+                <string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+            </array>
+        </dict>
+    </array>
+
+    <!--
+        NSPrivacyAccessedAPITypes: Required-reason APIs used by this app or its SDK dependencies.
+        Each entry must declare which API is accessed and cite an approved reason code
+        from https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_use_of_required_reason_api
+    -->
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <!--
+            NSUserDefaults — used by system frameworks and some third-party SDKs.
+            Reason CA92.1: "Access info from the same app that wrote the info."
+        -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>CA92.1</string>
+            </array>
+        </dict>
+        <!--
+            File timestamp APIs — accessed indirectly through Foundation file operations.
+            Reason C617.1: "Display file timestamps to the person using the device."
+        -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>C617.1</string>
+            </array>
+        </dict>
+        <!--
+            System boot time — accessed indirectly through networking and timing APIs.
+            Reason 35F9.1: "Measure the time between events within the app."
+        -->
+        <dict>
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <string>35F9.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>

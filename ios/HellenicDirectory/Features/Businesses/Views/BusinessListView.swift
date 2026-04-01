@@ -40,6 +40,8 @@ struct BusinessListView: View {
     }
 }
 
+// MARK: - BusinessRow
+
 struct BusinessRow: View {
     let business: BusinessListing
 
@@ -48,9 +50,21 @@ struct BusinessRow: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 12) {
                     if let logoUrl = business.logoUrl, let url = URL(string: logoUrl) {
-                        AsyncImage(url: url) { img in img.resizable().scaledToFill() }
-                        placeholder: { Color.hdNavy.opacity(0.1) }
-                        .frame(width: 44, height: 44).clipShape(RoundedRectangle(cornerRadius: 8))
+                        // Phase-based AsyncImage avoids the ambiguous trailing-closure
+                        // syntax in the 2-closure initialiser and gives explicit control
+                        // over loading, success, and failure states.
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image.resizable().scaledToFill()
+                            case .failure:
+                                Color.hdNavy.opacity(0.1)
+                            default:
+                                Color.hdNavy.opacity(0.05)
+                            }
+                        }
+                        .frame(width: 44, height: 44)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                     } else {
                         ZStack {
                             RoundedRectangle(cornerRadius: 8).fill(Color.hdNavy.opacity(0.1))
@@ -98,8 +112,8 @@ struct BusinessRow: View {
     }
 
     private func openPhone(_ phone: String) {
-        let clean = phone.components(separatedBy: .decimalDigits.inverted).joined()
-        if let url = URL(string: "tel:\(clean)") { UIApplication.shared.open(url) }
+        let digits = phone.components(separatedBy: .decimalDigits.inverted).joined()
+        if let url = URL(string: "tel:\(digits)") { UIApplication.shared.open(url) }
     }
     private func openEmail(_ email: String) {
         if let url = URL(string: "mailto:\(email)") { UIApplication.shared.open(url) }

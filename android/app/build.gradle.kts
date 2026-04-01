@@ -16,7 +16,7 @@ android {
         versionCode = 1
         versionName = "1.0.0"
 
-        buildConfigField("String", "API_BASE_URL", "\"https://api.hellenicdir.com\"")
+        buildConfigField("String", "API_BASE_URL", "\"https://api.hellenicdir.com/api/v1\"")
         manifestPlaceholders["MAPS_API_KEY"] = project.findProperty("MAPS_API_KEY") ?: ""
     }
 
@@ -40,7 +40,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:4000\"")
+            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:4000/api/v1\"")
         }
         release {
             isMinifyEnabled = true
@@ -77,5 +77,6 @@ dependencies {
     implementation(libs.datastore)
     implementation(libs.coil.compose)
     implementation(libs.maps.compose)
+    implementation(libs.security.crypto)
     debugImplementation(libs.compose.ui.tooling)
 }

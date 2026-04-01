@@ -4,8 +4,14 @@ import MapKit
 struct ParishDetailView: View {
     let parishId: String
     @EnvironmentObject private var vm: ParishViewModel
+
     @State private var parish: Parish?
     @State private var isLoading = true
+    /// Mutable region state allows the user to pan and zoom the map freely.
+    @State private var mapRegion = MKCoordinateRegion(
+        center: CLLocationCoordinate2D(latitude: 39.5, longitude: -98.35), // US center
+        span: MKCoordinateSpan(latitudeDelta: 20, longitudeDelta: 20)
+    )
 
     var body: some View {
         Group {
@@ -28,24 +34,44 @@ struct ParishDetailView: View {
 
                         HDMeanderDivider()
 
-                        // Map
+                        // Interactive map — uses @State region so the user can pan/zoom.
                         if let lat = p.latitude, let lng = p.longitude {
-                            Map(coordinateRegion: .constant(MKCoordinateRegion(
-                                center: CLLocationCoordinate2D(latitude: lat, longitude: lng),
-                                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-                            )), annotationItems: [p]) { _ in
-                                MapMarker(coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng), tint: .yellow)
+                            Map(coordinateRegion: $mapRegion,
+                                annotationItems: [p]) { _ in
+                                MapMarker(
+                                    coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lng),
+                                    tint: .yellow
+                                )
                             }
                             .frame(height: 180)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .onAppear {
+                                mapRegion = MKCoordinateRegion(
+                                    center: CLLocationCoordinate2D(latitude: lat, longitude: lng),
+                                    span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                                )
+                            }
                         }
 
                         // Contact info
                         HDCard {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("Contact").font(.hdTitle3).foregroundColor(Color.hdNavy).padding(.bottom, 4)
-                                if let addr = p.address { ContactRow(icon: "mappin", text: addr) }
-                                if let loc = p.city { ContactRow(icon: "location", text: "\(loc)\(p.state != nil ? ", \(p.state!)" : "")\(p.zip != nil ? " \(p.zip!)" : "")") }
+                                Text("Contact")
+                                    .font(.hdTitle3)
+                                    .foregroundColor(Color.hdNavy)
+                                    .padding(.bottom, 4)
+                                if let addr = p.address {
+                                    ContactRow(icon: "mappin", text: addr)
+                                }
+                                // Use nil-coalescing to avoid force-unwraps on optional fields.
+                                if let city = p.city {
+                                    let state = p.state ?? ""
+                                    let zip = p.zip ?? ""
+                                    let location = [city, state, zip]
+                                        .filter { !$0.isEmpty }
+                                        .joined(separator: " ")
+                                    ContactRow(icon: "location", text: location)
+                                }
                                 if let ph = p.phone {
                                     Button(action: { openPhone(ph) }) {
                                         ContactRow(icon: "phone", text: ph, isAction: true)
@@ -69,14 +95,21 @@ struct ParishDetailView: View {
                         if let clergy = p.clergy, !clergy.isEmpty {
                             HDCard {
                                 VStack(alignment: .leading, spacing: 12) {
-                                    Text("Clergy").font(.hdTitle3).foregroundColor(Color.hdNavy).padding(.bottom, 4)
+                                    Text("Clergy")
+                                        .font(.hdTitle3)
+                                        .foregroundColor(Color.hdNavy)
+                                        .padding(.bottom, 4)
                                     ForEach(clergy) { c in
                                         HStack(spacing: 12) {
                                             HDAvatar(initials: String(c.fullName.prefix(1)), size: 36)
                                             VStack(alignment: .leading, spacing: 2) {
-                                                Text(c.displayName).font(.hdSubhead).foregroundColor(Color.hdNavy)
+                                                Text(c.displayName)
+                                                    .font(.hdSubhead)
+                                                    .foregroundColor(Color.hdNavy)
                                                 if let em = c.email {
-                                                    Text(em).font(.hdCaption).foregroundColor(Color.hdGold)
+                                                    Text(em)
+                                                        .font(.hdCaption)
+                                                        .foregroundColor(Color.hdGold)
                                                 }
                                             }
                                         }
@@ -92,25 +125,30 @@ struct ParishDetailView: View {
                 .navigationTitle(p.name)
                 .navigationBarTitleDisplayMode(.inline)
             } else {
-                Text("Parish not found.").foregroundColor(Color.hdMuted)
+                Text("Parish not found.")
+                    .foregroundColor(Color.hdMuted)
             }
         }
         .task {
-            await vm.loadParish(id: parishId)
-            parish = vm.selectedParish
+            // loadParish returns the parish directly, eliminating the race condition
+            // that occurred when reading vm.selectedParish (a shared published property
+            // that could be overwritten by concurrent detail-view loads).
+            parish = await vm.loadParish(id: parishId)
             isLoading = false
         }
     }
 
     private func openPhone(_ phone: String) {
-        let clean = phone.components(separatedBy: .decimalDigits.inverted).joined()
-        if let url = URL(string: "tel:\(clean)") { UIApplication.shared.open(url) }
+        let digits = phone.components(separatedBy: .decimalDigits.inverted).joined()
+        if let url = URL(string: "tel:\(digits)") { UIApplication.shared.open(url) }
     }
 
     private func openEmail(_ email: String) {
         if let url = URL(string: "mailto:\(email)") { UIApplication.shared.open(url) }
     }
 }
+
+// MARK: - ContactRow
 
 struct ContactRow: View {
     let icon: String
