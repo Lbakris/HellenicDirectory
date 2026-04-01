@@ -10,6 +10,8 @@ const envSchema = z.object({
   JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
   JWT_REFRESH_EXPIRES_IN: z.string().default("30d"),
   CORS_ORIGINS: z.string().default("http://localhost:3000"),
+  /// Base URL of the web client — used to build links in transactional emails.
+  APP_URL: z.string().url().default("http://localhost:3000"),
   APP_OWNER_EMAIL: z.string().email(),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default("noreply@hellenicdir.com"),

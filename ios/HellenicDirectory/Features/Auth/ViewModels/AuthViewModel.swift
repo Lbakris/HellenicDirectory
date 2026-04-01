@@ -1,5 +1,8 @@
 import Foundation
+import UIKit
 import Combine
+
+// MARK: - Response / request types
 
 struct UserResponse: Decodable {
     let user: AppUser
@@ -26,12 +29,21 @@ struct LoginResponse: Decodable {
     let refreshToken: String
 }
 
+/// Registration request body.
+/// Consent fields are required by the backend per CCPA/PIPEDA sensitive-data rules.
 struct RegisterRequest: Encodable {
     let email: String
     let password: String
     let fullName: String
     let phone: String?
+    /// Version of the Privacy Policy the user accepted (e.g. "2024-01-01").
+    let privacyPolicyVersion: String
+    let consentPrivacyPolicy: Bool
+    let consentTerms: Bool
+    let consentSensitiveData: Bool
 }
+
+// MARK: - AuthViewModel
 
 @MainActor
 class AuthViewModel: ObservableObject {
@@ -46,8 +58,10 @@ class AuthViewModel: ObservableObject {
         Task { await restoreSession() }
     }
 
+    /// Attempts to restore the authenticated session from the stored Keychain tokens.
     func restoreSession() async {
-        guard KeychainManager.shared.accessToken != nil else {
+        let hasToken = await KeychainManager.shared.accessToken != nil
+        guard hasToken else {
             isLoading = false
             return
         }
@@ -55,39 +69,69 @@ class AuthViewModel: ObservableObject {
             let response: UserResponse = try await APIClient.shared.get("/auth/me")
             currentUser = response.user
         } catch {
-            KeychainManager.shared.clearAll()
+            await KeychainManager.shared.clearAll()
         }
         isLoading = false
     }
 
+    /// Authenticates with email and password and persists the issued tokens to Keychain.
     func login(email: String, password: String) async throws {
+        // UIDevice.identifierForVendor must be accessed on the main thread.
+        // This method is @MainActor so the call is safe here.
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString
+
         let response: LoginResponse = try await APIClient.shared.post(
             "/auth/login",
-            body: LoginRequest(email: email, password: password, deviceId: UIDeviceID.current)
+            body: LoginRequest(email: email, password: password, deviceId: deviceId)
         )
-        KeychainManager.shared.accessToken = response.accessToken
-        KeychainManager.shared.refreshToken = response.refreshToken
+        await KeychainManager.shared.setAccessToken(response.accessToken)
+        await KeychainManager.shared.setRefreshToken(response.refreshToken)
         currentUser = response.user
     }
 
-    func register(fullName: String, email: String, password: String, phone: String?) async throws {
+    /// Registers a new account.
+    ///
+    /// Consent acknowledgements are passed as `true` because the registration UI
+    /// requires all three checkboxes to be ticked before this function is callable.
+    ///
+    /// - Parameters:
+    ///   - privacyPolicyVersion: The version string of the Privacy Policy the user accepted.
+    func register(
+        fullName: String,
+        email: String,
+        password: String,
+        phone: String?,
+        privacyPolicyVersion: String = "2024-01-01"
+    ) async throws {
         let _: UserResponse = try await APIClient.shared.post(
             "/auth/register",
-            body: RegisterRequest(email: email, password: password, fullName: fullName, phone: phone)
+            body: RegisterRequest(
+                email: email,
+                password: password,
+                fullName: fullName,
+                phone: phone,
+                privacyPolicyVersion: privacyPolicyVersion,
+                consentPrivacyPolicy: true,
+                consentTerms: true,
+                consentSensitiveData: true
+            )
         )
     }
 
+    /// Signs out by revoking the refresh token and clearing Keychain credentials.
     func logout() async {
-        let refreshToken = KeychainManager.shared.refreshToken
+        let refreshToken = await KeychainManager.shared.refreshToken
         struct LogoutBody: Encodable { let refreshToken: String? }
         try? await APIClient.shared.post("/auth/logout", body: LogoutBody(refreshToken: refreshToken)) as EmptyResponse
-        KeychainManager.shared.clearAll()
+        await KeychainManager.shared.clearAll()
         currentUser = nil
     }
-}
 
-enum UIDeviceID {
-    static var current: String {
-        UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
+    /// Requests account deletion (GDPR/CCPA right to erasure).
+    /// Revokes all tokens server-side and clears local credentials.
+    func deleteAccount() async throws {
+        try await APIClient.shared.delete("/auth/account")
+        await KeychainManager.shared.clearAll()
+        currentUser = nil
     }
 }

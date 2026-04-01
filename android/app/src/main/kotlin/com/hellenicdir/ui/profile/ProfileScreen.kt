@@ -2,6 +2,7 @@ package com.hellenicdir.ui.profile
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,6 +18,9 @@ fun ProfileScreen(onLogout: () -> Unit, authViewModel: AuthViewModel = hiltViewM
     val state by authViewModel.uiState.collectAsState()
     val user = state.user
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var deleteError by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -57,12 +61,82 @@ fun ProfileScreen(onLogout: () -> Unit, authViewModel: AuthViewModel = hiltViewM
         Button(
             onClick = { showLogoutDialog = true },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer
+            )
         ) {
             Icon(Icons.Default.ExitToApp, contentDescription = null)
             Spacer(Modifier.width(8.dp))
             Text("Sign Out")
         }
+
+        // Delete account — required by Google Play policy (June 2022)
+        OutlinedButton(
+            onClick = { showDeleteDialog = true },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+        ) {
+            Icon(Icons.Default.DeleteForever, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Delete Account")
+        }
+
+        deleteError?.let {
+            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+
+    // Step 1 — inform about consequences
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Delete Account") },
+            text = {
+                Text(
+                    "Deleting your account will permanently remove all your data, including " +
+                    "directory memberships and messages. Your account will be deactivated immediately " +
+                    "and permanently deleted after a 30-day grace period.\n\n" +
+                    "This action cannot be undone. Do you want to continue?"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    showDeleteConfirmDialog = true
+                }) {
+                    Text("Continue", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // Step 2 — final confirmation
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = { Text("Confirm Account Deletion") },
+            text = { Text("Are you absolutely sure? This is your final confirmation.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirmDialog = false
+                        authViewModel.deleteAccount(
+                            onComplete = onLogout,
+                            onError = { msg -> deleteError = msg }
+                        )
+                    }
+                ) {
+                    Text("Delete My Account", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 
     if (showLogoutDialog) {

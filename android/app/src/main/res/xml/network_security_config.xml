@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network Security Configuration
+    ================================
+    Enforces HTTPS for all production traffic.
+
+    - Cleartext (plain HTTP) is disabled for all domains by default.
+    - The debug overrides block allows HTTP to 10.0.2.2 (Android emulator loopback
+      for the local dev server) so developers do not need a TLS cert locally.
+    - Only system certificate authorities are trusted — no user-installed CAs,
+      which protects against MITM attacks using self-signed certificates installed
+      by enterprise MDM or parental-control software.
+
+    Reference: https://developer.android.com/training/articles/security-config
+-->
+<network-security-config>
+
+    <!-- Production: HTTPS only, system CAs only -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- Debug only: allow plaintext to the emulator host (localhost) -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+        <domain-config cleartextTrafficPermitted="true">
+            <!-- Android emulator loopback for local dev API server -->
+            <domain includeSubdomains="false">10.0.2.2</domain>
+        </domain-config>
+    </debug-overrides>
+
+</network-security-config>

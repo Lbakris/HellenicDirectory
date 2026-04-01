@@ -1,5 +1,11 @@
 // Hellenic Directory of America — Prisma Schema
 // Database: PostgreSQL
+//
+// Data classification note: This application processes religious affiliation data
+// (Greek Orthodox community directories), which is classified as sensitive personal
+// information under CCPA/CPRA, all 20 US state privacy laws, PIPEDA, and
+// Quebec Law 25. All models involving PII include consent-tracking fields.
+// See: Legal Compliance Blueprint for the Hellenic Directory of America.
 
 generator client {
   provider = "prisma-client-js"
@@ -37,54 +43,88 @@ enum MessageType {
 
 // ─── Identity ─────────────────────────────────────────────────────────────────
 
+/// Core user account. Stores minimal PII per data-minimisation principle.
+/// Sensitive fields (religious affiliation implied by directory membership)
+/// are protected by invite-only access — never stored in plaintext on this model.
 model User {
-  id                String    @id @default(uuid())
-  email             String    @unique
-  emailVerifiedAt   DateTime?
-  passwordHash      String?
-  fullName          String
-  phone             String?
-  avatarUrl         String?
-  appRole           AppRole   @default(REGISTERED)
-  pushTokenFcm      String?
-  pushTokenApns     String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  deletedAt         DateTime?
+  id            String    @id @default(uuid())
+  email         String    @unique
+  emailVerifiedAt DateTime?
+  /// Email verification token hash (SHA-256). Null once verified.
+  emailVerifyToken String?
+  passwordHash  String?
 
-  authTokens        AuthToken[]
-  oauthAccounts     OAuthAccount[]
-  createdDirectories Directory[]      @relation("DirectoryCreator")
-  directoryAdminOf  DirectoryAdmin[]
-  directoryMembers  DirectoryMember[]
-  sentInvitations   DirectoryInvitation[] @relation("InvitedBy")
-  approvedInvitations DirectoryInvitation[] @relation("ApprovedBy")
-  sentMessages      Message[]
+  fullName      String
+  phone         String?
+  avatarUrl     String?
+  appRole       AppRole   @default(REGISTERED)
+
+  // Push notification tokens (device-specific, not PII)
+  pushTokenFcm  String?
+  pushTokenApns String?
+
+  // ── Consent / compliance fields (CCPA §1798.140, PIPEDA Clause 4.3, Quebec Law 25) ──
+  /// Timestamp user accepted the Privacy Policy. Required before account activation.
+  privacyPolicyAcceptedAt DateTime?
+  /// Timestamp user accepted the Terms of Service.
+  termsAcceptedAt         DateTime?
+  /// Version of privacy policy accepted (e.g. "2024-01-01").
+  privacyPolicyVersion    String?
+  /// Explicit opt-in consent for processing religious-affiliation-adjacent data.
+  /// Required in 16 US states and under PIPEDA. Must be recorded before directory access.
+  sensitiveDataConsentAt  DateTime?
+  /// Whether user has requested account deletion (soft flag; hard delete scheduled).
+  deletionRequestedAt     DateTime?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  /// Soft-delete timestamp. Set on account deletion request; row purged after 30-day grace.
+  deletedAt     DateTime?
+
+  authTokens           AuthToken[]
+  oauthAccounts        OAuthAccount[]
+  auditLogs            AuditLog[]
+  createdDirectories   Directory[]           @relation("DirectoryCreator")
+  directoryAdminOf     DirectoryAdmin[]
+  directoryMembers     DirectoryMember[]
+  sentInvitations      DirectoryInvitation[] @relation("InvitedBy")
+  approvedInvitations  DirectoryInvitation[] @relation("ApprovedBy")
+  sentMessages         Message[]
   threadParticipations ThreadParticipant[]
-  verifiedOrgs      MemberOrganization[] @relation("VerifiedBy")
-  createdBusinesses BusinessListing[]
+  verifiedOrgs         MemberOrganization[]  @relation("VerifiedBy")
+  createdBusinesses    BusinessListing[]
 
+  @@index([email])
+  @@index([appRole])
+  @@index([deletedAt])
   @@map("users")
 }
 
+/// Refresh token store. One row per issued refresh token.
+/// Tokens are stored as SHA-256 hashes — never in plaintext.
 model AuthToken {
-  id          String    @id @default(uuid())
-  userId      String
-  tokenHash   String    @unique
-  deviceId    String?
-  expiresAt   DateTime
-  revokedAt   DateTime?
-  createdAt   DateTime  @default(now())
+  id        String    @id @default(uuid())
+  userId    String
+  /// SHA-256 hash of the raw refresh token value.
+  tokenHash String    @unique
+  deviceId  String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
 
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([expiresAt])
   @@map("auth_tokens")
 }
 
+/// OAuth provider link (Google, Apple Sign-In).
 model OAuthAccount {
   id             String   @id @default(uuid())
   userId         String
-  provider       String   // "google" | "apple"
+  /// e.g. "google" | "apple"
+  provider       String
   providerUserId String
   createdAt      DateTime @default(now())
 
@@ -94,25 +134,55 @@ model OAuthAccount {
   @@map("oauth_accounts")
 }
 
+/// Immutable audit log for all admin and sensitive operations.
+/// Required by Legal Compliance Blueprint §5 (audit trail / SOC 2 path).
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String
+  /// Action identifier, e.g. "user.role_changed", "directory.created", "member.removed"
+  action     String
+  /// Target entity type, e.g. "User", "Directory"
+  entityType String?
+  /// Target entity UUID
+  entityId   String?
+  /// JSON snapshot of changed values (old/new)
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor      User     @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
 // ─── Parish Directory ─────────────────────────────────────────────────────────
 
+/// Greek Orthodox Archdiocese of America metropolis (diocese-level grouping).
+/// Data sourced from goarch.org via scheduled scraper with attribution.
 model Metropolis {
-  id          String   @id @default(uuid())
-  goarchId    String   @unique
-  name        String
-  bishopName  String?
-  region      String?
-  website     String?
-  rawData     Json?
+  id            String    @id @default(uuid())
+  goarchId      String    @unique
+  name          String
+  bishopName    String?
+  region        String?
+  website       String?
+  rawData       Json?
   lastScrapedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  parishes    Parish[]
+  parishes      Parish[]
 
   @@map("metropolises")
 }
 
+/// Greek Orthodox parish. Data sourced from goarch.org — see scraper attribution.
+/// goarchId is the stable external identifier from the GOARCH website.
 model Parish {
   id            String     @id @default(uuid())
   goarchId      String     @unique
@@ -136,34 +206,48 @@ model Parish {
   metropolis    Metropolis? @relation(fields: [metropolisId], references: [id])
   clergy        Clergy[]
 
+  // Indexes optimise the primary search patterns from the PRD:
+  // name search, city filter, state filter, and map-based proximity.
+  @@index([name])
+  @@index([city])
+  @@index([state])
+  @@index([city, state])
+  @@index([latitude, longitude])
+  @@index([metropolisId])
   @@map("parishes")
 }
 
+/// Clergy associated with a parish (priests, deacons, etc.).
 model Clergy {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   parishId       String
-  goarchClergyId String?  @unique
+  goarchClergyId String?   @unique
   title          String?
   fullName       String
   email          String?
   phone          String?
   rawData        Json?
   lastScrapedAt  DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  parish         Parish   @relation(fields: [parishId], references: [id], onDelete: Cascade)
+  parish         Parish    @relation(fields: [parishId], references: [id], onDelete: Cascade)
 
+  @@index([parishId])
+  @@index([fullName])
   @@map("clergy")
 }
 
 // ─── Private Directories ──────────────────────────────────────────────────────
 
+/// Invite-only private member directory. isVisible defaults to false and is only
+/// set true by app admins — never exposed in public-facing UIs for non-members.
 model Directory {
   id          String    @id @default(uuid())
   name        String
   slug        String    @unique
   description String?
+  /// Controls whether this directory is shown in any listing. Always false by default.
   isVisible   Boolean   @default(false)
   createdById String
   createdAt   DateTime  @default(now())
@@ -176,9 +260,11 @@ model Directory {
   invitations DirectoryInvitation[]
   threads     MessageThread[]
 
+  @@index([deletedAt])
   @@map("directories")
 }
 
+/// Junction: users who have admin or chapter-admin privileges within a directory.
 model DirectoryAdmin {
   id          String             @id @default(uuid())
   directoryId String
@@ -190,30 +276,40 @@ model DirectoryAdmin {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([directoryId, userId])
+  @@index([userId])
   @@map("directory_admins")
 }
 
+/// Invitation record. Dual-approval: both the inviter and one other member (or an
+/// admin) must approve before the invited user becomes a directory member.
 model DirectoryInvitation {
-  id              String           @id @default(uuid())
-  directoryId     String
-  invitedById     String
-  email           String
-  token           String           @unique @default(uuid())
-  status          InvitationStatus @default(PENDING)
+  id                String           @id @default(uuid())
+  directoryId       String
+  invitedById       String
+  email             String
+  /// Cryptographically random UUID used in invite links. Treated as a secret.
+  token             String           @unique @default(uuid())
+  status            InvitationStatus @default(PENDING)
+  /// Admin who approved (overrides dual-approval for admins).
   adminApprovedById String?
-  // second approval tracking (dual-approval: inviter + one other member or admin)
-  secondApproverId String?
-  expiresAt       DateTime
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  /// Second approver for the dual-approval workflow.
+  secondApproverId  String?
+  expiresAt         DateTime
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
-  directory       Directory @relation(fields: [directoryId], references: [id], onDelete: Cascade)
-  invitedBy       User      @relation("InvitedBy", fields: [invitedById], references: [id])
-  approvedBy      User?     @relation("ApprovedBy", fields: [adminApprovedById], references: [id])
+  directory  Directory @relation(fields: [directoryId], references: [id], onDelete: Cascade)
+  invitedBy  User      @relation("InvitedBy", fields: [invitedById], references: [id])
+  approvedBy User?     @relation("ApprovedBy", fields: [adminApprovedById], references: [id])
 
+  @@index([directoryId, status])
+  @@index([email])
+  @@index([token])
   @@map("directory_invitations")
 }
 
+/// A user's profile within a specific directory. Minimum required fields per PRD:
+/// photoUrl, fullName (via User), and email or phone.
 model DirectoryMember {
   id               String    @id @default(uuid())
   directoryId      String
@@ -222,33 +318,42 @@ model DirectoryMember {
   city             String?
   industry         String?
   employer         String?
-  preferredContact String?   // "email" | "phone" | "in-app"
-  bio              String?
+  /// "email" | "phone" | "in-app"
+  preferredContact String?
+  bio              String?   @db.VarChar(500)
   joinedAt         DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  directory        Directory @relation(fields: [directoryId], references: [id], onDelete: Cascade)
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organizations    MemberOrganization[]
+  directory     Directory          @relation(fields: [directoryId], references: [id], onDelete: Cascade)
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizations MemberOrganization[]
 
   @@unique([directoryId, userId])
+  @@index([directoryId])
+  @@index([userId])
+  @@index([industry])
   @@map("directory_members")
 }
 
 // ─── Organizations ────────────────────────────────────────────────────────────
 
+/// Community organization (AHEPA, Philoptochos, Daughters of Penelope, etc.).
+/// Members self-report affiliation; chapter admins must verify before it displays.
 model Organization {
   id          String   @id @default(uuid())
-  name        String
-  type        String?  // "AHEPA" | "Philoptochos" | "Daughters of Penelope" | "custom"
+  name        String   @unique
+  type        String?
   description String?
   createdAt   DateTime @default(now())
 
   members     MemberOrganization[]
 
+  @@index([name])
   @@map("organizations")
 }
 
+/// Junction: a member's claimed affiliation with an organization.
+/// verifiedAt/verifiedById null until a chapter admin approves the claim.
 model MemberOrganization {
   id             String    @id @default(uuid())
   memberId       String
@@ -257,16 +362,19 @@ model MemberOrganization {
   verifiedById   String?
   createdAt      DateTime  @default(now())
 
-  member         DirectoryMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  organization   Organization    @relation(fields: [organizationId], references: [id])
-  verifiedBy     User?           @relation("VerifiedBy", fields: [verifiedById], references: [id])
+  member       DirectoryMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  verifiedBy   User?           @relation("VerifiedBy", fields: [verifiedById], references: [id])
 
   @@unique([memberId, organizationId])
+  @@index([organizationId])
   @@map("member_organizations")
 }
 
 // ─── Messaging ────────────────────────────────────────────────────────────────
 
+/// A message thread within a directory. DIRECT = 1:1 or small group.
+/// BROADCAST = admin sends to all members.
 model MessageThread {
   id          String      @id @default(uuid())
   directoryId String
@@ -275,61 +383,76 @@ model MessageThread {
   type        MessageType @default(DIRECT)
   createdAt   DateTime    @default(now())
 
-  directory    Directory          @relation(fields: [directoryId], references: [id], onDelete: Cascade)
+  directory    Directory           @relation(fields: [directoryId], references: [id], onDelete: Cascade)
   participants ThreadParticipant[]
   messages     Message[]
 
+  @@index([directoryId])
+  @@index([createdAt])
   @@map("message_threads")
 }
 
+/// Junction: users who are participants in a message thread.
 model ThreadParticipant {
-  id        String   @id @default(uuid())
-  threadId  String
-  userId    String
-  joinedAt  DateTime @default(now())
+  id       String   @id @default(uuid())
+  threadId String
+  userId   String
+  joinedAt DateTime @default(now())
 
-  thread    MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread   MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([threadId, userId])
+  @@index([userId])
   @@map("thread_participants")
 }
 
+/// A single message within a thread.
+/// Per PRD: messages are forwarded to the recipient's real email automatically.
 model Message {
-  id                String    @id @default(uuid())
-  threadId          String
-  senderId          String
-  body              String
-  sentAt            DateTime  @default(now())
-  emailForwardedAt  DateTime?
+  id               String    @id @default(uuid())
+  threadId         String
+  senderId         String
+  body             String
+  sentAt           DateTime  @default(now())
+  emailForwardedAt DateTime?
 
-  thread            MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  sender            User          @relation(fields: [senderId], references: [id])
+  thread  MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender  User          @relation(fields: [senderId], references: [id])
 
+  @@index([threadId, sentAt])
+  @@index([senderId])
   @@map("messages")
 }
 
 // ─── Business Listings ────────────────────────────────────────────────────────
 
+/// Admin-managed sponsored business listing. Publicly searchable.
+/// All contact fields are required to ensure listing quality (per PRD Section 3).
 model BusinessListing {
-  id            String    @id @default(uuid())
-  businessName  String
-  contactName   String
-  phone         String
-  email         String
-  city          String
-  state         String?
-  website       String?
-  description   String?   @db.VarChar(250)
-  logoUrl       String?
-  keywords      String[]
-  isActive      Boolean   @default(true)
-  createdById   String
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
+  id           String    @id @default(uuid())
+  businessName String
+  contactName  String
+  phone        String
+  email        String
+  city         String
+  state        String?
+  website      String?
+  /// Maximum 250 characters per PRD specification.
+  description  String?   @db.VarChar(250)
+  logoUrl      String?
+  /// Lowercase keyword tags for category search (e.g. ["restaurant", "greek", "nyc"]).
+  keywords     String[]
+  isActive     Boolean   @default(true)
+  createdById  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
 
-  createdBy     User      @relation(fields: [createdById], references: [id])
+  createdBy    User      @relation(fields: [createdById], references: [id])
 
+  @@index([city])
+  @@index([isActive, deletedAt])
+  @@index([businessName])
   @@map("business_listings")
 }

@@ -2,6 +2,7 @@ package com.hellenicdir.core.network
 
 import com.hellenicdir.data.remote.dto.*
 import retrofit2.http.*
+import retrofit2.http.DELETE
 
 interface ApiService {
     // Auth
@@ -19,6 +20,10 @@ interface ApiService {
 
     @GET("auth/me")
     suspend fun getMe(): UserResponse
+
+    /** GDPR/CCPA right to erasure — soft-deletes the account and revokes all tokens. */
+    @DELETE("auth/account")
+    suspend fun deleteAccount()
 
     // Parishes
     @GET("parishes")

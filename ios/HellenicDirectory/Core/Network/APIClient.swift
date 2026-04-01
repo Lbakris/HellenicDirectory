@@ -1,5 +1,7 @@
 import Foundation
 
+// MARK: - Types
+
 enum HTTPMethod: String {
     case get = "GET"
     case post = "POST"
@@ -17,15 +19,24 @@ enum APIError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL: return "Invalid URL"
+        case .invalidURL:                    return "Invalid URL"
         case .httpError(let code, let msg): return "HTTP \(code): \(msg)"
-        case .decodingError(let e): return "Decoding error: \(e.localizedDescription)"
-        case .noData: return "No data returned"
-        case .unauthorized: return "Session expired. Please sign in again."
+        case .decodingError(let e):         return "Decoding error: \(e.localizedDescription)"
+        case .noData:                        return "No data returned"
+        case .unauthorized:                  return "Session expired. Please sign in again."
         }
     }
 }
 
+/// Sentinel type used as the return type for requests that return no body (204 No Content).
+struct EmptyResponse: Decodable {}
+
+private struct ErrorResponse: Decodable { let error: String }
+
+// MARK: - APIClient actor
+
+/// Centralized HTTP client. Actor isolation ensures token reads and request
+/// construction are serialized without manual locking.
 actor APIClient {
     static let shared = APIClient()
 
@@ -36,8 +47,13 @@ actor APIClient {
 
     private init() {
         baseURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
-            ?? "http://localhost:4000"
-        session = URLSession(configuration: .default)
+            ?? "http://localhost:4000/api/v1"
+
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 60
+        session = URLSession(configuration: config)
+
         decoder = {
             let d = JSONDecoder()
             d.keyDecodingStrategy = .convertFromSnakeCase
@@ -51,6 +67,17 @@ actor APIClient {
         }()
     }
 
+    // MARK: Request
+
+    /// Performs an authenticated HTTP request with automatic token-refresh retry.
+    ///
+    /// - Parameters:
+    ///   - path: Path relative to `baseURL` (e.g. `/auth/me`).
+    ///   - method: HTTP method.
+    ///   - body: Optional `Encodable` request body.
+    ///   - retry: When `true`, a 401 response triggers one token-refresh attempt before propagating.
+    /// - Returns: The decoded `T` value.
+    /// - Throws: `APIError` on network, HTTP, or decoding failures.
     func request<T: Decodable>(
         _ path: String,
         method: HTTPMethod = .get,
@@ -63,7 +90,7 @@ actor APIClient {
         req.httpMethod = method.rawValue
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        if let accessToken = KeychainManager.shared.accessToken {
+        if let accessToken = await KeychainManager.shared.accessToken {
             req.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
         }
 
@@ -88,7 +115,12 @@ actor APIClient {
             throw APIError.httpError(http.statusCode, msg)
         }
 
-        if T.self == EmptyResponse.self { return EmptyResponse() as! T }
+        // For empty-body responses (204 No Content or EmptyResponse type), skip decoding.
+        if T.self == EmptyResponse.self || data.isEmpty {
+            // Safe conditional cast: T is verified to be EmptyResponse above.
+            if let empty = EmptyResponse() as? T { return empty }
+            throw APIError.noData
+        }
 
         do {
             return try decoder.decode(T.self, from: data)
@@ -97,22 +129,25 @@ actor APIClient {
         }
     }
 
+    // MARK: Convenience methods
+
+    /// Performs a GET request and decodes the response body as `T`.
     func get<T: Decodable>(_ path: String) async throws -> T {
         try await request(path, method: .get)
     }
 
+    /// Performs a POST request with `body` and decodes the response as `T`.
     func post<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
         try await request(path, method: .post, body: body)
     }
 
+    /// Performs a PATCH request with `body` and decodes the response as `T`.
     func patch<T: Decodable>(_ path: String, body: some Encodable) async throws -> T {
         try await request(path, method: .patch, body: body)
     }
 
+    /// Performs a DELETE request. Returns when the server responds with 2xx.
     func delete(_ path: String) async throws {
         let _: EmptyResponse = try await request(path, method: .delete)
     }
 }
-
-struct ErrorResponse: Decodable { let error: String }
-struct EmptyResponse: Decodable {}

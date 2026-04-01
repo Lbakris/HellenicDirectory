@@ -12,16 +12,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hellenicdir.core.auth.TokenDataStore
 import com.hellenicdir.core.network.ApiService
 import com.hellenicdir.data.remote.dto.*
 import com.hellenicdir.ui.designsystem.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 data class InboxUiState(
@@ -32,18 +31,38 @@ data class InboxUiState(
     val isSending: Boolean = false
 )
 
+/**
+ * ViewModel for the directory inbox/messaging screen.
+ *
+ * [directoryId] is read from [SavedStateHandle] (key "directoryId"), which is
+ * populated automatically by Navigation Compose when the destination declares it
+ * as a nav argument. Using SavedStateHandle — rather than a mutable `var` field
+ * set via an `init()` call — ensures the value survives process death and
+ * eliminates the Hilt anti-pattern of calling initialisation logic after
+ * ViewModel creation from the UI layer.
+ */
 @HiltViewModel
 class InboxViewModel @Inject constructor(
     private val api: ApiService,
-    private val tokenDataStore: TokenDataStore
+    savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
+
+    private val directoryId: String = checkNotNull(savedStateHandle["directoryId"]) {
+        "InboxViewModel requires a 'directoryId' navigation argument"
+    }
+
     private val _state = MutableStateFlow(InboxUiState())
     val state = _state.asStateFlow()
-    private var directoryId: String = ""
 
-    fun init(dirId: String) {
-        directoryId = dirId
+    init {
         viewModelScope.launch {
+            // Fetch current user ID and threads concurrently
+            launch {
+                try {
+                    val me = api.getMe()
+                    _state.update { it.copy(currentUserId = me.user.id) }
+                } catch (_: Exception) {}
+            }
             loadThreads()
         }
     }
@@ -81,11 +100,9 @@ class InboxViewModel @Inject constructor(
 }
 
 @Composable
-fun InboxScreen(directoryId: String, viewModel: InboxViewModel = hiltViewModel()) {
+fun InboxScreen(viewModel: InboxViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsState()
     var draft by remember { mutableStateOf("") }
-
-    LaunchedEffect(directoryId) { viewModel.init(directoryId) }
 
     if (state.isLoading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = HDGold) }

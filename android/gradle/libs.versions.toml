@@ -19,6 +19,7 @@ coil = "2.7.0"
 maps = "4.3.3"
 mapsUtils = "3.4.0"
 serialization = "1.7.1"
+securityCrypto = "1.1.0-alpha06"
 
 [libraries]
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -50,6 +51,7 @@ datastore = { group = "androidx.datastore", name = "datastore-preferences", vers
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "maps" }
 serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
+security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

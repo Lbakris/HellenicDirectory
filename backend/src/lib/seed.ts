@@ -1,6 +1,14 @@
 /**
- * Database seed — creates the app owner account and sample data.
+ * Database seed — creates the app owner account and reference data.
+ *
  * Run with: npx tsx src/lib/seed.ts
+ *
+ * Required environment variables:
+ *   APP_OWNER_EMAIL        — owner account email
+ *   SEED_OWNER_PASSWORD    — owner account password (min 12 chars, no default)
+ *
+ * The SEED_OWNER_PASSWORD variable has no fallback. Providing a default here
+ * would risk shipping a known-password owner account to production.
  */
 
 import bcrypt from "bcrypt";
@@ -9,10 +17,20 @@ import { prisma } from "../config/db";
 async function seed() {
   console.info("[Seed] Starting...");
 
-  // App owner
-  const ownerEmail = process.env.APP_OWNER_EMAIL ?? "admin@hellenicdir.com";
-  const ownerPassword = process.env.SEED_OWNER_PASSWORD ?? "ChangeMe123!";
+  // ── App owner account ──────────────────────────────────────────────────────
+  const ownerEmail = process.env.APP_OWNER_EMAIL;
+  const ownerPassword = process.env.SEED_OWNER_PASSWORD;
 
+  if (!ownerEmail) {
+    console.error("[Seed] APP_OWNER_EMAIL is required");
+    process.exit(1);
+  }
+  if (!ownerPassword || ownerPassword.length < 12) {
+    console.error("[Seed] SEED_OWNER_PASSWORD is required and must be at least 12 characters");
+    process.exit(1);
+  }
+
+  const now = new Date();
   await prisma.user.upsert({
     where: { email: ownerEmail },
     update: {},
@@ -21,29 +39,36 @@ async function seed() {
       passwordHash: await bcrypt.hash(ownerPassword, 12),
       fullName: "App Owner",
       appRole: "OWNER",
-      emailVerifiedAt: new Date(),
+      emailVerifiedAt: now,
+      // Record implicit consent for the seed owner (required fields on model).
+      privacyPolicyAcceptedAt: now,
+      privacyPolicyVersion: "2024-01-01",
+      termsAcceptedAt: now,
+      sensitiveDataConsentAt: now,
     },
   });
   console.info(`[Seed] Owner account: ${ownerEmail}`);
 
-  // Sample organizations
-  const orgs = ["AHEPA", "Daughters of Penelope", "Philoptochos", "GOYA", "Greek Orthodox Youth"];
-  for (const name of orgs) {
+  // ── Reference organizations ────────────────────────────────────────────────
+  // Organization.name has a @unique constraint — use it as the upsert key so
+  // this is idempotent on repeated runs without requiring the row's UUID.
+  const orgNames = [
+    "AHEPA",
+    "Daughters of Penelope",
+    "Philoptochos",
+    "GOYA",
+    "Greek Orthodox Youth",
+  ];
+  for (const name of orgNames) {
     await prisma.organization.upsert({
-      where: { id: name },
+      where: { name },
       update: {},
-      create: { id: name, name },
-    }).catch(() =>
-      prisma.organization.upsert({
-        where: { name } as any,
-        update: {},
-        create: { name },
-      })
-    );
+      create: { name },
+    });
   }
   console.info("[Seed] Organizations created");
 
-  // Sample parish (for dev/testing)
+  // ── Sample parish (development / smoke-testing only) ──────────────────────
   await prisma.parish.upsert({
     where: { goarchId: "sample-parish-001" },
     update: {},

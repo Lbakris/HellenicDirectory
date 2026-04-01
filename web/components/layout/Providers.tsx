@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { AuthContext, useAuthState } from "../../lib/hooks/useAuth";
+import CookieBanner from "./CookieBanner";
 
 function AuthProvider({ children }: { children: React.ReactNode }) {
   const authState = useAuthState();
@@ -16,7 +17,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>{children}</AuthProvider>
+      <AuthProvider>
+        {children}
+        <CookieBanner />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

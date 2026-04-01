@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/api-client";
 import type { PaginatedBusinesses } from "../../../shared/src/types/business";
@@ -67,7 +68,13 @@ export default function BusinessSearch() {
               <div key={biz.id} className="bg-card border border-border rounded-lg p-5 hover:border-gold/40 transition-colors">
                 <div className="flex items-start gap-3 mb-3">
                   {biz.logoUrl ? (
-                    <img src={biz.logoUrl} alt={biz.businessName} className="w-12 h-12 rounded object-contain border border-border" />
+                    <Image
+                      src={biz.logoUrl}
+                      alt={`${biz.businessName} logo`}
+                      width={48}
+                      height={48}
+                      className="w-12 h-12 rounded object-contain border border-border"
+                    />
                   ) : (
                     <div className="w-12 h-12 rounded bg-navy/10 flex items-center justify-center text-navy font-bold text-lg shrink-0">
                       {biz.businessName.charAt(0)}
