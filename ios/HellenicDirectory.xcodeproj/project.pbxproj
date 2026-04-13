@@ -123,27 +123,27 @@
 		B7AB829E147C5C30FE98B1CB /* Core */ = {
 			isa = PBXGroup;
 			children = (9D6D1481A6B2340337BC50F3 /* Auth */, F0E491D1618FEFD4BB952291 /* Network */,);
-			path = Core; sourceTree = "<group>"; }};
+			path = Core; sourceTree = "<group>"; };
 		9D6D1481A6B2340337BC50F3 /* Auth */ = {
 			isa = PBXGroup;
 			children = (2B8BC695060F1B1898CBCBE8 /* KeychainManager.swift */, F00A7CF5D82FCB540C68D884 /* TokenRefreshCoordinator.swift */,);
-			path = Auth; sourceTree = "<group>"; }};
+			path = Auth; sourceTree = "<group>"; };
 		F0E491D1618FEFD4BB952291 /* Network */ = {
 			isa = PBXGroup;
 			children = (1486DE49190386E59D40FB78 /* APIClient.swift */,);
-			path = Network; sourceTree = "<group>"; }};
+			path = Network; sourceTree = "<group>"; };
 		75C76AD4A8285D8ACA888B61 /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (0BA441B644D126BC209B13AE /* Components */, EC32E32BDD002092F38B2BDB /* HDColors.swift */, 7059CAE55C7C2532A3A7ABB0 /* HDTypography.swift */,);
-			path = DesignSystem; sourceTree = "<group>"; }};
+			path = DesignSystem; sourceTree = "<group>"; };
 		0BA441B644D126BC209B13AE /* Components */ = {
 			isa = PBXGroup;
 			children = (B481A6A2EE4B3A6372A727DD /* HDCard.swift */,);
-			path = Components; sourceTree = "<group>"; }};
+			path = Components; sourceTree = "<group>"; };
 		F7A3FAD1BFA84C82EB67ADA9 /* Features */ = {
 			isa = PBXGroup;
 			children = (B2AFFD55A3511F1DD544587D /* Admin */, 9936103FFAB96BA93A47478C /* Auth */, 925B9C6AE9BE30BB2C943926 /* Businesses */, 5CE1D0FBEBB4BBE45F8F88A5 /* Directories */, EDDE5A9431639F61FF2DA92D /* Messaging */, B70F1083E9C8E54BC3E2B190 /* Parishes */, D6AF5669FCD5CCF5E8467843 /* Profile */,);
-			path = Features; sourceTree = "<group>"; }};
+			path = Features; sourceTree = "<group>"; };
 		B2AFFD55A3511F1DD544587D /* Admin */ = { isa = PBXGroup; children = (D778FF2A6233FDE2F27B3135 /* Views */,); path = Admin; sourceTree = "<group>"; };
 		D778FF2A6233FDE2F27B3135 /* Views */ = { isa = PBXGroup; children = (FCE132C603C55A80948882C5 /* AdminDashboardView.swift */,); path = Views; sourceTree = "<group>"; };
 		9936103FFAB96BA93A47478C /* Auth */ = { isa = PBXGroup; children = (0F8818D4955B9E098FE8A9F7 /* ViewModels */, 4F757D1730746BE6F72AFB16 /* Views */,); path = Auth; sourceTree = "<group>"; };
@@ -167,7 +167,7 @@
 		45B877375D6D6297BAAF2860 /* Resources */ = {
 			isa = PBXGroup;
 			children = (EC5BA50E6F5CDBA57F97C7AA /* PrivacyInfo.xcprivacy */,);
-			path = Resources; sourceTree = "<group>"; }};
+			path = Resources; sourceTree = "<group>"; };
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
