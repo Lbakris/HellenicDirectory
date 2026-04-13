@@ -1,11 +1,10 @@
-import { FastifyInstance } from "fastify";
+import { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { prisma } from "../../config/db";
 import { requireAuth } from "../../middleware/auth";
 import { sendMail, messageForwardHtml } from "../../lib/mailer";
+import { env } from "../../config/env";
 import { AppRole } from "@prisma/client";
-
-const APP_URL = process.env.CORS_ORIGINS ?? "https://hellenicdir.com";
 
 export async function messagingRoutes(app: FastifyInstance) {
   // GET /directories/:id/messages — list threads for a directory
@@ -107,7 +106,7 @@ export async function messagingRoutes(app: FastifyInstance) {
             senderName: sender?.fullName ?? "Someone",
             directoryName: directory?.name ?? "your directory",
             body: input.body,
-            appUrl: APP_URL,
+            appUrl: env.APP_URL,
           }),
         }).catch(console.error);
       }
@@ -120,7 +119,7 @@ export async function messagingRoutes(app: FastifyInstance) {
   });
 }
 
-async function assertMember(directoryId: string, userId: string, appRole: AppRole, reply: any) {
+async function assertMember(directoryId: string, userId: string, appRole: AppRole, reply: FastifyReply) {
   const isGlobalAdmin = appRole === AppRole.OWNER || appRole === AppRole.ADMIN;
   if (isGlobalAdmin) return;
 

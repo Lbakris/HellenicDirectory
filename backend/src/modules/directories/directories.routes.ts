@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../config/db";
 import { requireAuth, requireAdmin } from "../../middleware/auth";
 import { sendMail, inviteEmailHtml } from "../../lib/mailer";
+import { env } from "../../config/env";
 import { AppRole } from "@prisma/client";
 
 function slugify(name: string) {
@@ -150,7 +151,8 @@ export async function directoryRoutes(app: FastifyInstance) {
       },
     });
 
-    const inviteUrl = `${process.env.CORS_ORIGINS}/invite/${invitation.token}`;
+    // APP_URL is Zod-validated as a URL in env.ts — safe to use as the invite base URL.
+    const inviteUrl = `${env.APP_URL}/invite/${invitation.token}`;
 
     await sendMail({
       to: email,

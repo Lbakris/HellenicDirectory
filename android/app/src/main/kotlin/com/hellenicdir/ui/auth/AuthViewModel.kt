@@ -2,7 +2,7 @@ package com.hellenicdir.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hellenicdir.core.auth.TokenDataStore
+import com.hellenicdir.core.auth.EncryptedTokenStorage
 import com.hellenicdir.core.network.ApiService
 import com.hellenicdir.data.remote.dto.*
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /** Current version of the Privacy Policy — must match what is displayed in the UI. */
-private const val PRIVACY_POLICY_VERSION = "2024-01-01"
+private const val PRIVACY_POLICY_VERSION = "2025-01-01"
 
 data class AuthUiState(
     val user: UserDto? = null,
@@ -25,7 +25,7 @@ data class AuthUiState(
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val api: ApiService,
-    private val tokenDataStore: TokenDataStore,
+    private val tokenDataStore: EncryptedTokenStorage,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())

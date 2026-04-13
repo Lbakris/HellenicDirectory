@@ -1,6 +1,6 @@
 package com.hellenicdir.core.network
 
-import com.hellenicdir.core.auth.TokenDataStore
+import com.hellenicdir.core.auth.EncryptedTokenStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
@@ -18,7 +18,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class AuthInterceptor @Inject constructor(
-    private val tokenDataStore: TokenDataStore,
+    private val tokenDataStore: EncryptedTokenStorage,
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {

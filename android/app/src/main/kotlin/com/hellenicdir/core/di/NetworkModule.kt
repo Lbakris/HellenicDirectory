@@ -1,7 +1,7 @@
 package com.hellenicdir.core.di
 
 import com.hellenicdir.BuildConfig
-import com.hellenicdir.core.auth.TokenDataStore
+import com.hellenicdir.core.auth.EncryptedTokenStorage
 import com.hellenicdir.core.network.ApiService
 import com.hellenicdir.core.network.AuthInterceptor
 import com.hellenicdir.core.network.TokenAuthenticator

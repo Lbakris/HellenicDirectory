@@ -1,7 +1,7 @@
 package com.hellenicdir.core.network
 
 import com.hellenicdir.BuildConfig
-import com.hellenicdir.core.auth.TokenDataStore
+import com.hellenicdir.core.auth.EncryptedTokenStorage
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
@@ -36,7 +36,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class TokenAuthenticator @Inject constructor(
-    private val tokenDataStore: TokenDataStore,
+    private val tokenDataStore: EncryptedTokenStorage,
 ) : Authenticator {
 
     /** Dedicated client for token refresh — no auth interceptor to avoid re-entrancy. */
