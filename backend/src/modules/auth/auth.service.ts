@@ -15,6 +15,7 @@
 
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/db";
 import { sendMail, verifyEmailHtml } from "../../lib/mailer";
 import { env } from "../../config/env";
@@ -183,17 +184,33 @@ export async function refreshTokens(
   const newHash = crypto.createHash("sha256").update(newRefresh).digest("hex");
 
   // Atomic rotation: revoke the old token and create the new one in a single transaction.
-  await prisma.$transaction([
-    prisma.authToken.update({ where: { id: stored.id }, data: { revokedAt: new Date() } }),
-    prisma.authToken.create({
-      data: {
-        userId: stored.user.id,
-        tokenHash: newHash,
-        deviceId: stored.deviceId,
-        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  // SERIALIZABLE isolation prevents a race window where two concurrent requests both
+  // validate the same refresh token before either transaction commits. If a serialization
+  // conflict occurs (Prisma P2034), it is surfaced as a 401 to the caller.
+  try {
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.authToken.update({ where: { id: stored.id }, data: { revokedAt: new Date() } });
+        await tx.authToken.create({
+          data: {
+            userId: stored.user.id,
+            tokenHash: newHash,
+            deviceId: stored.deviceId,
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          },
+        });
       },
-    }),
-  ]);
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
+  } catch (e: unknown) {
+    // P2034: serialization failure — another request rotated this token concurrently.
+    if ((e as { code?: string }).code === "P2034") {
+      const err = new Error("Invalid or expired refresh token") as Error & { statusCode: number };
+      err.statusCode = 401;
+      throw err;
+    }
+    throw e;
+  }
 
   return { accessToken: newAccess, refreshToken: newRefresh };
 }

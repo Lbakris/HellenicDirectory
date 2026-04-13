@@ -66,7 +66,8 @@ export async function authRoutes(app: FastifyInstance) {
   );
 
   // ── POST /refresh ─────────────────────────────────────────────────────────
-  app.post("/refresh", async (req, reply) => {
+  // Rate limit: 30 attempts per minute per IP to prevent refresh-token brute-force.
+  app.post("/refresh", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (req, reply) => {
     const { refreshToken } = refreshSchema.parse(req.body);
     const tokens = await refreshTokens(
       refreshToken,

@@ -157,6 +157,10 @@ model AuditLog {
   @@index([action])
   @@index([entityType, entityId])
   @@index([createdAt])
+  // Composite indexes for common compliance queries: actor activity over time,
+  // and full entity history over time (required for SOC 2 audit log scans).
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId, createdAt])
   @@map("audit_logs")
 }
 

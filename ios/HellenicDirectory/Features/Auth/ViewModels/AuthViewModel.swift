@@ -1,6 +1,12 @@
 import Foundation
 import UIKit
 import Combine
+import OSLog
+
+/// Current Privacy Policy version — must match the version displayed in the registration UI.
+private let PRIVACY_POLICY_VERSION = "2025-01-01"
+
+private let logger = Logger(subsystem: "com.hellenicdir", category: "AuthViewModel")
 
 // MARK: - Response / request types
 
@@ -69,6 +75,7 @@ class AuthViewModel: ObservableObject {
             let response: UserResponse = try await APIClient.shared.get("/auth/me")
             currentUser = response.user
         } catch {
+            logger.warning("Session restore failed — clearing tokens: \(error.localizedDescription, privacy: .public)")
             await KeychainManager.shared.clearAll()
         }
         isLoading = false
@@ -100,8 +107,7 @@ class AuthViewModel: ObservableObject {
         fullName: String,
         email: String,
         password: String,
-        phone: String?,
-        privacyPolicyVersion: String = "2024-01-01"
+        phone: String?
     ) async throws {
         let _: UserResponse = try await APIClient.shared.post(
             "/auth/register",
@@ -110,7 +116,7 @@ class AuthViewModel: ObservableObject {
                 password: password,
                 fullName: fullName,
                 phone: phone,
-                privacyPolicyVersion: privacyPolicyVersion,
+                privacyPolicyVersion: PRIVACY_POLICY_VERSION,
                 consentPrivacyPolicy: true,
                 consentTerms: true,
                 consentSensitiveData: true

@@ -185,6 +185,15 @@ export async function runGoarchScraper() {
         const data = parseParishFromHtml(html, id);
 
         if (!data.name) {
+          console.warn(`[GoarchScraper] No parish name parsed for ${url} — skipping`);
+          consecutiveErrors++;
+          continue;
+        }
+        if (!data.address || !data.city) {
+          console.warn(
+            `[GoarchScraper] Incomplete location data for "${data.name}" (${url}) — ` +
+            `address=${data.address ?? "missing"}, city=${data.city ?? "missing"} — skipping upsert`
+          );
           consecutiveErrors++;
           continue;
         }
