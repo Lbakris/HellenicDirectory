@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ring Sort Puzzle</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: radial-gradient(ellipse at 50% 0%, #21123a 0%, #0d0d0d 65%);
+      color: #fff;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 40px;
+      gap: 18px;
+    }
+
+    /* ---- Header ---- */
+    header { text-align: center; }
+
+    h1 {
+      font-size: clamp(1.8rem, 6vw, 2.6rem);
+      font-weight: 900;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #FF6EC7 0%, #A855F7 45%, #60A5FA 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 14px;
+    }
+
+    .stats {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .pill {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: 6px 20px;
+      border-radius: 99px;
+      font-size: 0.88rem;
+      letter-spacing: 0.2px;
+    }
+
+    .pill b { color: #C084FC; }
+
+    /* ---- Goal text ---- */
+    #goal {
+      font-size: 0.88rem;
+      color: rgba(255,255,255,0.42);
+      text-align: center;
+    }
+
+    /* ---- Board ---- */
+    #board {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 10px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.055);
+      border-radius: 24px;
+      padding: 20px 14px 14px;
+      width: 100%;
+      max-width: 760px;
+      min-height: 340px;
+    }
+
+    /* ---- Pole ---- */
+    .pole-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      gap: 0;
+      user-select: none;
+    }
+
+    .pole-area {
+      position: relative;
+      width: var(--pw);
+      height: var(--ph);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      transition: filter 0.15s;
+    }
+
+    .pole-area.selected {
+      filter: drop-shadow(0 0 10px rgba(240, 200, 60, 0.8));
+    }
+
+    .pole-col:hover .pole-area:not(.selected) {
+      filter: brightness(1.12);
+    }
+
+    /* Bolt shaft */
+    .shaft {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 13px;
+      top: 0;
+      bottom: 20px;
+      background: linear-gradient(90deg,
+        #333 0%, #888 30%, #ddd 50%, #888 70%, #333 100%);
+      border-radius: 7px 7px 2px 2px;
+      z-index: 0;
+    }
+
+    /* Threaded tip */
+    .shaft-tip {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 9px;
+      top: 0;
+      height: 56px;
+      z-index: 1;
+      background: repeating-linear-gradient(
+        180deg,
+        #ccc 0px, #ccc 3.5px,
+        #555 3.5px, #555 7px
+      );
+      border-radius: 4px 4px 0 0;
+    }
+
+    /* Base nut */
+    .base-nut {
+      position: relative;
+      flex-shrink: 0;
+      width: calc(var(--pw) - 6px);
+      height: 22px;
+      background: linear-gradient(180deg, #999 0%, #555 55%, #222 100%);
+      clip-path: polygon(8% 0%, 92% 0%, 100% 50%, 92% 100%, 8% 100%, 0% 50%);
+      z-index: 4;
+      box-shadow: 0 5px 14px rgba(0,0,0,0.7);
+    }
+
+    /* Rings stack */
+    .rings {
+      position: absolute;
+      bottom: 22px;
+      left: 0;
+      right: 0;
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: center;
+      gap: 2px;
+      padding-bottom: 2px;
+      z-index: 3;
+    }
+
+    /* ---- Ring ---- */
+    .ring {
+      width: calc(var(--pw) - 6px);
+      height: 30px;
+      border-radius: 5px;
+      position: relative;
+      flex-shrink: 0;
+      /* Hexagonal nut silhouette */
+      clip-path: polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%);
+      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.18s;
+    }
+
+    /* Top sheen */
+    .ring::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 12%; right: 12%;
+      height: 42%;
+      background: rgba(255,255,255,0.2);
+      border-radius: 3px 3px 0 0;
+    }
+
+    /* Bolt hole */
+    .ring::after {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 13px;
+      height: 13px;
+      background: rgba(0,0,0,0.7);
+      border-radius: 50%;
+    }
+
+    /* Float selected top ring */
+    .ring.lifted {
+      transform: translateY(-16px);
+      filter: brightness(1.3) drop-shadow(0 8px 16px rgba(255,220,60,0.5));
+    }
+
+    /* Color themes */
+    .ring.pink   { background: linear-gradient(180deg, #FF96D5 0%, #E91E8C 55%, #830047 100%); }
+    .ring.dark   { background: linear-gradient(180deg, #6e6e6e 0%, #2e2e2e 55%, #0a0a0a 100%); }
+    .ring.purple { background: linear-gradient(180deg, #D8A8FC 0%, #9333EA 55%, #430B90 100%); }
+    .ring.orange { background: linear-gradient(180deg, #FDAD6A 0%, #F97316 55%, #7C2600 100%); }
+    .ring.green  { background: linear-gradient(180deg, #74EDAA 0%, #22C55E 55%, #0A4E28 100%); }
+    .ring.blue   { background: linear-gradient(180deg, #99C8FD 0%, #3B82F6 55%, #102460 100%); }
+    .ring.red    { background: linear-gradient(180deg, #FCA8A8 0%, #EF4444 55%, #710000 100%); }
+    .ring.yellow { background: linear-gradient(180deg, #FDE990 0%, #EAB308 55%, #5A3100 100%); }
+
+    /* "Done" pole glow */
+    .pole-area.done .shaft {
+      background: linear-gradient(90deg, #2a6 0%, #4d4 30%, #8f8 50%, #4d4 70%, #2a6 100%);
+    }
+
+    /* ---- Shake animation ---- */
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      18%     { transform: translateX(-7px); }
+      36%     { transform: translateX(7px); }
+      54%     { transform: translateX(-4px); }
+      72%     { transform: translateX(4px); }
+    }
+    .pole-area.shake { animation: shake 0.36s ease; }
+
+    /* ---- Controls ---- */
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 99px;
+      padding: 10px 24px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.1s, filter 0.15s;
+      letter-spacing: 0.2px;
+    }
+    button:hover  { filter: brightness(1.15); transform: scale(1.04); }
+    button:active { transform: scale(0.96); }
+
+    .btn-ghost {
+      background: rgba(255,255,255,0.09);
+      color: rgba(255,255,255,0.75);
+      border: 1px solid rgba(255,255,255,0.14);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #E91E8C, #9333EA);
+      color: #fff;
+    }
+
+    /* ---- Level selector ---- */
+    .lvl-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+
+    .lvl-btn {
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.4);
+      border: 1px solid transparent;
+      border-radius: 99px;
+    }
+
+    .lvl-btn.active {
+      background: rgba(147,51,234,0.22);
+      color: #C084FC;
+      border-color: rgba(147,51,234,0.45);
+    }
+
+    /* ---- Win overlay ---- */
+    #win-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 60;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s;
+    }
+
+    #win-overlay.show {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .win-card {
+      background: linear-gradient(145deg, #1c1030, #0d0d1c);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 30px;
+      padding: 44px 52px;
+      text-align: center;
+      box-shadow: 0 30px 90px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06);
+      transform: scale(0.82);
+      transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    #win-overlay.show .win-card { transform: scale(1); }
+
+    .win-emoji {
+      font-size: 3.8rem;
+      display: block;
+      margin-bottom: 8px;
+      animation: bounce 1.2s ease-in-out infinite;
+    }
+
+    @keyframes bounce {
+      0%,100% { transform: translateY(0) rotate(-5deg); }
+      50%      { transform: translateY(-12px) rotate(5deg); }
+    }
+
+    .win-title {
+      font-size: 1.9rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .win-sub {
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 30px;
+      font-size: 1rem;
+    }
+
+    .win-sub b { color: #C084FC; }
+
+    /* ---- Confetti ---- */
+    .confetti-bit {
+      position: fixed;
+      pointer-events: none;
+      border-radius: 2px;
+      animation: confetti-fall linear forwards;
+      z-index: 55;
+    }
+
+    @keyframes confetti-fall {
+      0%   { transform: translateY(-12px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(105vh) rotate(600deg); opacity: 0; }
+    }
+
+    /* ---- Mobile ---- */
+    @media (max-width: 480px) {
+      body { padding: 16px 10px 32px; gap: 14px; }
+      .win-card { padding: 34px 28px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Ring Sort</h1>
+  <div class="stats">
+    <div class="pill">Level <b id="lv">1</b></div>
+    <div class="pill">Moves <b id="mv">0</b></div>
+  </div>
+</header>
+
+<p id="goal">Sort all rings by color — one color per bolt!</p>
+
+<div id="board"></div>
+
+<div class="controls">
+  <button class="btn-ghost" onclick="undo()">↩&nbsp; Undo</button>
+  <button class="btn-ghost" onclick="resetLevel()">↺&nbsp; Restart</button>
+</div>
+
+<div class="lvl-row" id="lvl-row"></div>
+
+<!-- Win screen -->
+<div id="win-overlay">
+  <div class="win-card">
+    <span class="win-emoji">🏆</span>
+    <div class="win-title">Level <span id="wl"></span> Clear!</div>
+    <div class="win-sub">Solved in <b id="wm"></b> moves</div>
+    <button class="btn-primary" id="next-btn" onclick="nextLevel()">Next Level &rarr;</button>
+  </div>
+</div>
+
+<script>
+// ─── LEVELS ─────────────────────────────────────────────────────────────────
+// rpc = rings per color (= max stack capacity)
+// empty = number of empty buffer poles
+const LEVELS = [
+  { colors: ['pink', 'dark'],                                          rpc: 3, empty: 1 },
+  { colors: ['pink', 'dark', 'purple'],                                rpc: 3, empty: 1 },
+  { colors: ['pink', 'dark', 'purple', 'orange'],                      rpc: 4, empty: 2 },
+  { colors: ['pink', 'dark', 'purple', 'orange', 'green'],             rpc: 4, empty: 2 },
+  { colors: ['pink', 'dark', 'purple', 'orange', 'green', 'blue'],     rpc: 4, empty: 2 },
+  { colors: ['pink', 'dark', 'purple', 'orange', 'green', 'blue', 'red'],           rpc: 5, empty: 2 },
+  { colors: ['pink', 'dark', 'purple', 'orange', 'green', 'blue', 'red', 'yellow'], rpc: 5, empty: 2 },
+];
+
+const CONFETTI_PALETTE = ['#FF6EC7','#A855F7','#60A5FA','#4ADE80','#FDE047','#FB923C','#F87171'];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let poles   = [];   // array of ring-stacks (bottom→top)
+let cap     = 0;    // max rings per pole
+let sel     = null; // currently selected pole index
+let moves   = 0;
+let curLvl  = 0;
+let hist    = [];   // undo stack: [{poles, moves}]
+
+// ─── LEVEL INIT ──────────────────────────────────────────────────────────────
+function initLevel(idx) {
+  curLvl = idx;
+  const { colors, rpc, empty } = LEVELS[idx];
+  cap = rpc;
+
+  // Build and shuffle ring pool
+  let pool = colors.flatMap(c => Array(rpc).fill(c));
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
+  // Distribute into color poles + empty poles
+  poles = [];
+  for (let i = 0; i < colors.length; i++) {
+    poles.push(pool.slice(i * rpc, (i + 1) * rpc));
+  }
+  for (let i = 0; i < empty; i++) poles.push([]);
+
+  sel   = null;
+  moves = 0;
+  hist  = [];
+
+  document.getElementById('win-overlay').classList.remove('show');
+  render();
+  updateStats();
+  buildLvlRow();
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function poleWidth(n) {
+  if (n >= 9) return 64;
+  if (n >= 7) return 72;
+  if (n >= 5) return 80;
+  return 88;
+}
+
+function poleHeight(rpc) {
+  return 36 + rpc * 34 + 60; // thread space + rings + base
+}
+
+function render() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  const n  = poles.length;
+  const pw = poleWidth(n);
+  const ph = poleHeight(cap);
+
+  poles.forEach((pole, pi) => {
+    const isDone = pole.length === cap && pole.every(r => r === pole[0]);
+
+    const col = document.createElement('div');
+    col.className = 'pole-col';
+    col.onclick = () => handleClick(pi);
+
+    const area = document.createElement('div');
+    area.className = 'pole-area' + (sel === pi ? ' selected' : '') + (isDone ? ' done' : '');
+    area.style.setProperty('--pw', pw + 'px');
+    area.style.setProperty('--ph', ph + 'px');
+    area.dataset.pi = pi;
+
+    const shaft = document.createElement('div');
+    shaft.className = 'shaft';
+
+    const tip = document.createElement('div');
+    tip.className = 'shaft-tip';
+
+    const ringsEl = document.createElement('div');
+    ringsEl.className = 'rings';
+    pole.forEach((color, ri) => {
+      const ring = document.createElement('div');
+      ring.className = 'ring ' + color;
+      if (sel === pi && ri === pole.length - 1) ring.classList.add('lifted');
+      ringsEl.appendChild(ring);
+    });
+
+    const base = document.createElement('div');
+    base.className = 'base-nut';
+    base.style.setProperty('--pw', pw + 'px');
+
+    area.append(shaft, tip, ringsEl, base);
+    col.appendChild(area);
+    board.appendChild(col);
+  });
+}
+
+// ─── INTERACTION ─────────────────────────────────────────────────────────────
+function handleClick(pi) {
+  if (sel === null) {
+    if (poles[pi].length > 0) sel = pi;
+    render();
+    return;
+  }
+
+  if (sel === pi) {
+    sel = null;
+    render();
+    return;
+  }
+
+  if (isValid(sel, pi)) {
+    doMove(sel, pi);
+  } else {
+    // Shake the target; switch selection to it if it has rings
+    const prevSel = sel;
+    sel = poles[pi].length > 0 ? pi : prevSel;
+    render();
+    // Shake animation after DOM update
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`.pole-area[data-pi="${pi}"]`);
+      if (el) {
+        el.classList.add('shake');
+        el.addEventListener('animationend', () => el.classList.remove('shake'), { once: true });
+      }
+    });
+  }
+}
+
+function isValid(from, to) {
+  if (poles[from].length === 0) return false;
+  if (poles[to].length >= cap)  return false;
+  if (poles[to].length === 0)   return true;
+  return poles[to][poles[to].length - 1] === poles[from][poles[from].length - 1];
+}
+
+function doMove(from, to) {
+  hist.push({ poles: poles.map(p => [...p]), moves });
+  poles[to].push(poles[from].pop());
+  moves++;
+  sel = null;
+  updateStats();
+  render();
+  if (checkWin()) setTimeout(showWin, 480);
+}
+
+function checkWin() {
+  return poles.every(p => p.length === 0 || (p.length === cap && p.every(r => r === p[0])));
+}
+
+// ─── WIN ─────────────────────────────────────────────────────────────────────
+function showWin() {
+  document.getElementById('wl').textContent = curLvl + 1;
+  document.getElementById('wm').textContent = moves;
+  const nextBtn = document.getElementById('next-btn');
+  nextBtn.style.display = curLvl < LEVELS.length - 1 ? '' : 'none';
+  document.getElementById('win-overlay').classList.add('show');
+  spawnConfetti();
+}
+
+function spawnConfetti() {
+  for (let i = 0; i < 80; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div');
+      el.className = 'confetti-bit';
+      el.style.cssText = `
+        left: ${Math.random() * 100}vw;
+        top: -12px;
+        width: ${5 + Math.random() * 9}px;
+        height: ${5 + Math.random() * 9}px;
+        background: ${CONFETTI_PALETTE[Math.floor(Math.random() * CONFETTI_PALETTE.length)]};
+        animation-duration: ${1.4 + Math.random() * 2.6}s;
+        border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+      `;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 5000);
+    }, i * 30);
+  }
+}
+
+// ─── ACTIONS ─────────────────────────────────────────────────────────────────
+function undo() {
+  if (!hist.length) return;
+  const s = hist.pop();
+  poles = s.poles;
+  moves = s.moves;
+  sel   = null;
+  updateStats();
+  render();
+}
+
+function resetLevel() { initLevel(curLvl); }
+
+function nextLevel() {
+  if (curLvl < LEVELS.length - 1) initLevel(curLvl + 1);
+}
+
+// ─── UI HELPERS ──────────────────────────────────────────────────────────────
+function updateStats() {
+  document.getElementById('lv').textContent = curLvl + 1;
+  document.getElementById('mv').textContent = moves;
+}
+
+function buildLvlRow() {
+  const row = document.getElementById('lvl-row');
+  row.innerHTML = '';
+  LEVELS.forEach((_, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'lvl-btn' + (i === curLvl ? ' active' : '');
+    btn.textContent = 'Level ' + (i + 1);
+    btn.onclick = () => initLevel(i);
+    row.appendChild(btn);
+  });
+}
+
+// ─── START ───────────────────────────────────────────────────────────────────
+initLevel(0);
+</script>
+</body>
+</html>
