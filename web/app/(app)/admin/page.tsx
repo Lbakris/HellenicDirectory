@@ -6,7 +6,7 @@ export default async function AdminPage() {
   const { user, accessToken } = await requireSession();
   if (user.appRole === "REGISTERED") redirect("/dashboard");
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
   const statsRes = await fetch(`${API_URL}/admin/stats`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: "no-store",

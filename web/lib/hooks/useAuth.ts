@@ -163,7 +163,7 @@ export function useAuthState(): AuthState {
    * Satisfies CCPA §1798.110 right-to-know and PIPEDA access requests.
    */
   async function exportData() {
-    const data = await api.get<unknown>("/account/data");
+    const data = await api.get<unknown>("/auth/account/data");
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

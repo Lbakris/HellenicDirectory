@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import type { User } from "../../shared/src/types/auth";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
 export async function getServerSession(): Promise<{ user: User; accessToken: string } | null> {
   const cookieStore = cookies();

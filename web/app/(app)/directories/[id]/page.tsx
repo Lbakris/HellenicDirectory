@@ -1,7 +1,7 @@
 import { requireSession } from "../../../../lib/auth";
 import Link from "next/link";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
 export default async function DirectoryPage({ params }: { params: { id: string } }) {
   const { accessToken } = await requireSession();
