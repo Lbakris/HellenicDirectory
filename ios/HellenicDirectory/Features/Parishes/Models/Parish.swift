@@ -2,7 +2,9 @@ import Foundation
 
 struct Parish: Decodable, Identifiable {
     let id: String
-    let goarchId: String
+    // Optional: the parish LIST endpoint omits goarchId from its select; only the
+    // detail endpoint returns it. Making it non-optional broke all list decoding.
+    let goarchId: String?
     let name: String
     let address: String?
     let city: String?

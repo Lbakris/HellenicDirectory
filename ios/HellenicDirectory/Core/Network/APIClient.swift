@@ -54,17 +54,44 @@ actor APIClient {
         config.timeoutIntervalForResource = 60
         session = URLSession(configuration: config)
 
+        // The backend speaks camelCase JSON (matching the Swift property names), so
+        // NO key-case conversion is applied in either direction. Converting to
+        // snake_case on encode previously turned `refreshToken`, `privacyPolicyVersion`,
+        // and the three consent flags into snake_case keys the backend's zod schemas
+        // rejected — breaking login refresh and registration entirely.
         decoder = {
             let d = JSONDecoder()
-            d.keyDecodingStrategy = .convertFromSnakeCase
-            d.dateDecodingStrategy = .iso8601
+            d.dateDecodingStrategy = .custom(APIClient.decodeISO8601)
             return d
         }()
         encoder = {
             let e = JSONEncoder()
-            e.keyEncodingStrategy = .convertToSnakeCase
             return e
         }()
+    }
+
+    /// Parses ISO-8601 timestamps with or without fractional seconds.
+    ///
+    /// Prisma serialises DateTime with milliseconds (e.g. "2024-01-01T12:00:00.000Z"),
+    /// which Foundation's `.iso8601` strategy cannot parse because ISO8601DateFormatter
+    /// omits fractional seconds by default. This tries the fractional-seconds format
+    /// first, then falls back to the plain internet date-time format.
+    private static func decodeISO8601(_ decoder: Decoder) throws -> Date {
+        let container = try decoder.singleValueContainer()
+        let string = try container.decode(String.self)
+
+        let withFractional = ISO8601DateFormatter()
+        withFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = withFractional.date(from: string) { return date }
+
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        if let date = plain.date(from: string) { return date }
+
+        throw DecodingError.dataCorruptedError(
+            in: container,
+            debugDescription: "Unrecognised ISO-8601 date: \(string)"
+        )
     }
 
     // MARK: Request

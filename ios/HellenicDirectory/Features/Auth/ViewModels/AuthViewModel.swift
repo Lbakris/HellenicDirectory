@@ -68,8 +68,14 @@ class AuthViewModel: ObservableObject {
         do {
             let response: UserResponse = try await APIClient.shared.get("/auth/me")
             currentUser = response.user
-        } catch {
+        } catch APIError.unauthorized {
+            // The session is genuinely invalid (a 401 that even token refresh could
+            // not recover). Clear the stored credentials.
             await KeychainManager.shared.clearAll()
+        } catch {
+            // Transient failure (offline, timeout, server 5xx). Keep the tokens so
+            // the user stays signed in and can retry — do not force a logout just
+            // because the app launched without connectivity.
         }
         isLoading = false
     }
@@ -91,8 +97,10 @@ class AuthViewModel: ObservableObject {
 
     /// Registers a new account.
     ///
-    /// Consent acknowledgements are passed as `true` because the registration UI
-    /// requires all three checkboxes to be ticked before this function is callable.
+    /// The three consent flags are supplied by the caller from the registration form's
+    /// toggles — they are never fabricated here. The backend independently rejects the
+    /// request unless all three are `true`, but the UI also gates the submit button so
+    /// the user must actively opt in (required for sensitive religious-affiliation data).
     ///
     /// - Parameters:
     ///   - privacyPolicyVersion: The version string of the Privacy Policy the user accepted.
@@ -101,6 +109,9 @@ class AuthViewModel: ObservableObject {
         email: String,
         password: String,
         phone: String?,
+        consentPrivacyPolicy: Bool,
+        consentTerms: Bool,
+        consentSensitiveData: Bool,
         privacyPolicyVersion: String = "2024-01-01"
     ) async throws {
         let _: UserResponse = try await APIClient.shared.post(
@@ -111,9 +122,9 @@ class AuthViewModel: ObservableObject {
                 fullName: fullName,
                 phone: phone,
                 privacyPolicyVersion: privacyPolicyVersion,
-                consentPrivacyPolicy: true,
-                consentTerms: true,
-                consentSensitiveData: true
+                consentPrivacyPolicy: consentPrivacyPolicy,
+                consentTerms: consentTerms,
+                consentSensitiveData: consentSensitiveData
             )
         )
     }

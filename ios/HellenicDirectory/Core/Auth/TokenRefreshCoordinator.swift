@@ -40,9 +40,14 @@ actor TokenRefreshCoordinator {
         struct TokenResponse: Decodable { let accessToken: String; let refreshToken: String }
 
         do {
-            let response: TokenResponse = try await APIClient.shared.post(
+            // retry: false is essential — the refresh call must NOT go through the
+            // 401-retry path, or a failed refresh would re-enter this coordinator and
+            // deadlock (the in-flight refresh would await a call that awaits itself).
+            let response: TokenResponse = try await APIClient.shared.request(
                 "/auth/refresh",
-                body: RefreshBody(refreshToken: refreshToken)
+                method: .post,
+                body: RefreshBody(refreshToken: refreshToken),
+                retry: false
             )
             await KeychainManager.shared.setAccessToken(response.accessToken)
             await KeychainManager.shared.setRefreshToken(response.refreshToken)
