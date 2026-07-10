@@ -15,6 +15,7 @@
 
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../config/db";
 import { sendMail, verifyEmailHtml } from "../../lib/mailer";
 import { env } from "../../config/env";
@@ -40,9 +41,12 @@ const TIMING_DUMMY_HASH =
  * @throws 409 if an active account already exists for the email.
  */
 export async function registerUser(input: RegisterInput) {
-  // Only block active accounts; allow re-registration once a deletion grace period ends.
-  const existing = await prisma.user.findFirst({
-    where: { email: input.email, deletedAt: null },
+  // The email column is globally unique, so a soft-deleted account still reserves
+  // its email during the 30-day recovery grace period. Check for ANY existing row
+  // (deleted or not) and reject with 409; the email frees only once the purge job
+  // hard-deletes the row after the grace period.
+  const existing = await prisma.user.findUnique({
+    where: { email: input.email },
     select: { id: true },
   });
   if (existing) {
@@ -59,21 +63,33 @@ export async function registerUser(input: RegisterInput) {
   const verifyTokenHash = crypto.createHash("sha256").update(rawVerifyToken).digest("hex");
 
   const now = new Date();
-  const user = await prisma.user.create({
-    data: {
-      email: input.email,
-      passwordHash,
-      fullName: input.fullName,
-      phone: input.phone,
-      emailVerifyToken: verifyTokenHash,
-      // Consent tracking — required fields for compliance audit trail.
-      privacyPolicyAcceptedAt: now,
-      privacyPolicyVersion: input.privacyPolicyVersion,
-      termsAcceptedAt: now,
-      sensitiveDataConsentAt: now,
-    },
-    select: { id: true, email: true, fullName: true, appRole: true },
-  });
+  let user;
+  try {
+    user = await prisma.user.create({
+      data: {
+        email: input.email,
+        passwordHash,
+        fullName: input.fullName,
+        phone: input.phone,
+        emailVerifyToken: verifyTokenHash,
+        // Consent tracking — required fields for compliance audit trail.
+        privacyPolicyAcceptedAt: now,
+        privacyPolicyVersion: input.privacyPolicyVersion,
+        termsAcceptedAt: now,
+        sensitiveDataConsentAt: now,
+      },
+      select: { id: true, email: true, fullName: true, appRole: true },
+    });
+  } catch (e) {
+    // Safety net for the race between the existence check and insert: a unique
+    // violation (P2002) becomes a clean 409 instead of an unhandled 500.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      const err = new Error("Email already in use") as Error & { statusCode: number };
+      err.statusCode = 409;
+      throw err;
+    }
+    throw e;
+  }
 
   // Fire-and-forget: verification email failure must not block account creation.
   sendMail({

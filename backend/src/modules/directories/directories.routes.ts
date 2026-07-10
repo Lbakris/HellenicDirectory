@@ -3,10 +3,32 @@ import { z } from "zod";
 import { prisma } from "../../config/db";
 import { requireAuth, requireAdmin } from "../../middleware/auth";
 import { sendMail, inviteEmailHtml } from "../../lib/mailer";
+import { env } from "../../config/env";
 import { AppRole, Prisma } from "@prisma/client";
 
 function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+/**
+ * Creates a directory membership for the account matching `email`, if one exists.
+ * Idempotent (upsert on the directoryId+userId unique key) so it is safe to call
+ * from multiple acceptance paths. Returns true if a member row now exists for that
+ * user, false if no active account matches the invited email yet (the invitee must
+ * register before they can be materialised as a member).
+ */
+async function materializeMembership(directoryId: string, email: string): Promise<boolean> {
+  const user = await prisma.user.findFirst({
+    where: { email, deletedAt: null },
+    select: { id: true },
+  });
+  if (!user) return false;
+  await prisma.directoryMember.upsert({
+    where: { directoryId_userId: { directoryId, userId: user.id } },
+    create: { directoryId, userId: user.id },
+    update: {},
+  });
+  return true;
 }
 
 export async function directoryRoutes(app: FastifyInstance) {
@@ -150,7 +172,13 @@ export async function directoryRoutes(app: FastifyInstance) {
       },
     });
 
-    const inviteUrl = `${process.env.CORS_ORIGINS}/invite/${invitation.token}`;
+    // An admin invite is accepted immediately, so materialise the membership now
+    // (no-op if the invited email has no account yet — they join on registration).
+    if (isAdmin) {
+      await materializeMembership(id, email);
+    }
+
+    const inviteUrl = `${env.APP_URL}/invite/${invitation.token}`;
 
     await sendMail({
       to: email,
@@ -191,14 +219,24 @@ export async function directoryRoutes(app: FastifyInstance) {
 
     if (!isMember) return reply.status(403).send({ error: "Forbidden" });
 
+    // Dual-approval: the approver must be someone other than the original inviter
+    // (an admin may still single-handedly approve, since admin invites are auto-accepted
+    // and never reach this PENDING path).
+    if (!isAdmin && invitation.invitedById === sub) {
+      return reply.status(403).send({ error: "A different member must approve this invitation" });
+    }
+
     await prisma.directoryInvitation.update({
       where: { id: invitation.id },
       data: {
         status: "ACCEPTED",
-        adminApprovedById: sub,
-        secondApproverId: invitation.adminApprovedById ? sub : undefined,
+        adminApprovedById: invitation.adminApprovedById ?? sub,
+        secondApproverId: sub,
       },
     });
+
+    // Invitation is now accepted — materialise the membership for the invited email.
+    await materializeMembership(id, invitation.email);
 
     return reply.send({ message: "Invitation approved" });
   });

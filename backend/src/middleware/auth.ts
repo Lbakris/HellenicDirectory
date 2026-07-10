@@ -20,6 +20,13 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply) {
   } catch {
     return reply.status(401).send({ error: "Unauthorized" });
   }
+  // Reject refresh-type tokens presented as bearer credentials. Access and refresh
+  // tokens share a signing secret, so without this check a 30-day refresh token
+  // would authenticate protected routes even after its DB record is revoked.
+  const payload = req.user as { type?: string };
+  if (payload.type !== "access") {
+    return reply.status(401).send({ error: "Unauthorized" });
+  }
 }
 
 /**

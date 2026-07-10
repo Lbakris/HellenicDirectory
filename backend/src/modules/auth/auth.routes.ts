@@ -58,8 +58,11 @@ export async function authRoutes(app: FastifyInstance) {
       const input = loginSchema.parse(req.body);
       const result = await loginUser(
         input,
-        (p) => app.jwt.sign(p, { expiresIn: "15m" }),
-        (p) => app.jwt.sign(p, { expiresIn: "30d" })
+        // Access and refresh tokens are signed with a distinct `type` claim so a
+        // refresh token can never be presented as a bearer access token (requireAuth
+        // enforces type === "access"). This makes DB-side refresh revocation effective.
+        (p) => app.jwt.sign({ ...p, type: "access" }, { expiresIn: "15m" }),
+        (p) => app.jwt.sign({ ...p, type: "refresh" }, { expiresIn: "30d" })
       );
       return reply.send(result);
     }
@@ -70,8 +73,8 @@ export async function authRoutes(app: FastifyInstance) {
     const { refreshToken } = refreshSchema.parse(req.body);
     const tokens = await refreshTokens(
       refreshToken,
-      (p) => app.jwt.sign(p, { expiresIn: "15m" }),
-      (p) => app.jwt.sign(p, { expiresIn: "30d" })
+      (p) => app.jwt.sign({ ...p, type: "access" }, { expiresIn: "15m" }),
+      (p) => app.jwt.sign({ ...p, type: "refresh" }, { expiresIn: "30d" })
     );
     return reply.send(tokens);
   });
