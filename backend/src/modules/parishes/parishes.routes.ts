@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../../config/db";
 import { redis } from "../../config/redis";
+import { Prisma } from "@prisma/client";
 
 const CACHE_TTL = 60 * 60 * 24; // 24 hours
 
@@ -20,9 +21,7 @@ export async function parishRoutes(app: FastifyInstance) {
     const { search, city, state, metropolisId, page, limit } = query;
     const skip = (page - 1) * limit;
 
-    const where: Parameters<typeof prisma.parish.findMany>[0]["where"] = {
-      deletedAt: undefined,
-    };
+    const where: Prisma.ParishWhereInput = {};
 
     if (search) {
       where.OR = [

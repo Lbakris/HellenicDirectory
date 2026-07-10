@@ -31,7 +31,7 @@ sealed class Screen(val route: String) {
     object DirectoryMembers : Screen("directory/{id}") {
         fun go(id: String) = "directory/$id"
     }
-    object Inbox : Screen("directory/{id}/inbox") {
+    object Inbox : Screen("directory/{directoryId}/inbox") {
         fun go(id: String) = "directory/$id/inbox"
     }
     object Profile : Screen("profile")
@@ -119,8 +119,12 @@ fun MainApp() {
                     onOpenInbox = { id -> navController.navigate(Screen.Inbox.go(id)) }
                 )
             }
-            composable(Screen.Inbox.route) { back ->
-                InboxScreen(directoryId = back.arguments?.getString("id") ?: "")
+            composable(
+                Screen.Inbox.route,
+                arguments = listOf(navArgument("directoryId") { type = NavType.StringType })
+            ) {
+                // directoryId is read from SavedStateHandle inside InboxViewModel.
+                InboxScreen()
             }
             composable(Screen.Profile.route) {
                 ProfileScreen(

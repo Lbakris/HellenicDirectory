@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.compose.compiler)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
@@ -25,9 +26,9 @@ android {
         buildConfig = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
+    // Note: composeOptions.kotlinCompilerExtensionVersion is no longer set — under
+    // Kotlin 2.0 the Compose compiler version is governed by the compose-compiler
+    // Gradle plugin (applied above) and tracks the Kotlin version automatically.
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

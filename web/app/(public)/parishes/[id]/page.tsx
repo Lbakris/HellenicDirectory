@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { Parish } from "../../../../shared/src/types/parish";
+import type { Parish } from "../../../../../shared/src/types/parish";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 

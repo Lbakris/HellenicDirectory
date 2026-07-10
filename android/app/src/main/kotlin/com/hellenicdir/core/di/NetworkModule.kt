@@ -38,7 +38,9 @@ object NetworkModule {
         .authenticator(tokenAuthenticator)
         .addInterceptor(
             HttpLoggingInterceptor().apply {
-                level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+                // HEADERS only in debug — never BODY, which would log access and
+                // refresh tokens to logcat (readable via adb / on rooted devices).
+                level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.HEADERS
                 else HttpLoggingInterceptor.Level.NONE
             }
         )

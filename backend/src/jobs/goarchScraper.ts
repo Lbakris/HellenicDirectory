@@ -20,6 +20,7 @@
 
 import * as cheerio from "cheerio";
 import { prisma } from "../config/db";
+import { Prisma } from "@prisma/client";
 
 const BASE_URL = "https://www.goarch.org";
 const PARISH_LIST_URL = `${BASE_URL}/parishes`;
@@ -201,7 +202,7 @@ export async function runGoarchScraper() {
             phone: data.phone,
             email: data.email,
             website: data.website,
-            rawData: data.rawData,
+            rawData: (data.rawData ?? {}) as Prisma.InputJsonValue,
             lastScrapedAt: new Date(),
           },
           update: {
@@ -213,7 +214,7 @@ export async function runGoarchScraper() {
             phone: data.phone,
             email: data.email,
             website: data.website,
-            rawData: data.rawData,
+            rawData: (data.rawData ?? {}) as Prisma.InputJsonValue,
             lastScrapedAt: new Date(),
           },
         });

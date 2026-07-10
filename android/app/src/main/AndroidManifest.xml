@@ -30,14 +30,14 @@
             android:name="com.google.android.geo.API_KEY"
             android:value="${MAPS_API_KEY}" />
 
-        <!-- Firebase (for push notifications) -->
-        <service
-            android:name=".core.push.HDFirebaseMessagingService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
+        <!--
+            Push notifications are not yet wired up. The Firebase Cloud Messaging
+            service was removed because it requires a google-services.json config
+            and the com.google.gms.google-services plugin, which are not part of
+            this project yet. Re-add the <service> declaration together with the
+            Firebase dependency and config when push is implemented.
+            (User schema already reserves pushTokenFcm / pushTokenApns fields.)
+        -->
 
     </application>
 </manifest>

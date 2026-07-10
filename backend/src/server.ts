@@ -39,16 +39,23 @@ const app = Fastify({
 
 async function bootstrap() {
   // ── Security plugins ───────────────────────────────────────────────────────
+  // Build CSP directives, adding upgrade-insecure-requests only in production.
+  // Helmet rejects an `undefined` directive value (it must be an array or be
+  // absent entirely), so the key is added conditionally rather than set to undefined.
+  const cspDirectives: Record<string, string[]> = {
+    defaultSrc: ["'none'"],
+    baseUri: ["'self'"],
+    frameAncestors: ["'none'"],
+    formAction: ["'none'"],
+  };
+  if (env.NODE_ENV === "production") {
+    cspDirectives.upgradeInsecureRequests = [];
+  }
+
   await app.register(fastifyHelmet, {
     // Restrict CSP for an API server: no scripts, no frames, HTTPS only.
     contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'none'"],
-        baseUri: ["'self'"],
-        frameAncestors: ["'none'"],
-        formAction: ["'none'"],
-        upgradeInsecureRequests: env.NODE_ENV === "production" ? [] : undefined,
-      },
+      directives: cspDirectives,
     },
     // HSTS: enforce HTTPS for 1 year in production.
     hsts:

@@ -1,6 +1,10 @@
 /**
  * Next.js configuration.
  *
+ * Next.js 14 loads configuration only from next.config.js / next.config.mjs
+ * (TypeScript config files require Next.js 15+), so this file is authored in
+ * ESM JavaScript with a JSDoc type annotation for editor assistance.
+ *
  * Security headers note:
  *  Content-Security-Policy uses 'unsafe-inline' for script-src to maintain
  *  compatibility with Next.js App Router's inline script injection. For
@@ -8,11 +12,10 @@
  *  middleware.ts (see Next.js docs: "Configuring CSP").
  */
 
-import type { NextConfig } from "next";
-
 const isProd = process.env.NODE_ENV === "production";
 
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.supabase.co" },

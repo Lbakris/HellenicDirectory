@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../../config/db";
 import { requireAuth, requireAdmin } from "../../middleware/auth";
 import { sendMail, inviteEmailHtml } from "../../lib/mailer";
-import { AppRole } from "@prisma/client";
+import { AppRole, Prisma } from "@prisma/client";
 
 function slugify(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -76,7 +76,7 @@ export async function directoryRoutes(app: FastifyInstance) {
 
     if (!isMember) return reply.status(404).send({ error: "Not found" });
 
-    const where: Parameters<typeof prisma.directoryMember.findMany>[0]["where"] = { directoryId: id };
+    const where: Prisma.DirectoryMemberWhereInput = { directoryId: id };
 
     if (query.search) {
       where.user = {

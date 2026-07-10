@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../../config/db";
 import { requireAuth, requireAdmin } from "../../middleware/auth";
+import { Prisma } from "@prisma/client";
 
 const businessSchema = z.object({
   businessName: z.string().min(2),
@@ -30,7 +31,7 @@ export async function businessRoutes(app: FastifyInstance) {
     const { search, city, keyword, page, limit } = query;
     const skip = (page - 1) * limit;
 
-    const where: Parameters<typeof prisma.businessListing.findMany>[0]["where"] = {
+    const where: Prisma.BusinessListingWhereInput = {
       isActive: true,
       deletedAt: null,
     };

@@ -9,7 +9,7 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../../config/db";
 import { requireAdmin, requireOwner } from "../../middleware/auth";
-import { AppRole } from "@prisma/client";
+import { AppRole, Prisma } from "@prisma/client";
 
 /** UUID v4 regex used to validate path parameters. */
 const uuidSchema = z.string().uuid("Invalid ID format");
@@ -26,7 +26,7 @@ export async function adminRoutes(app: FastifyInstance) {
       })
       .parse(req.query);
 
-    const where: Parameters<typeof prisma.user.findMany>[0]["where"] = { deletedAt: null };
+    const where: Prisma.UserWhereInput = { deletedAt: null };
     if (query.search) {
       where.OR = [
         { fullName: { contains: query.search, mode: "insensitive" } },
@@ -127,7 +127,7 @@ export async function adminRoutes(app: FastifyInstance) {
       })
       .parse(req.query);
 
-    const where: Parameters<typeof prisma.auditLog.findMany>[0]["where"] = {};
+    const where: Prisma.AuditLogWhereInput = {};
     if (query.action) where.action = { contains: query.action };
     if (query.actorId) where.actorId = query.actorId;
 
